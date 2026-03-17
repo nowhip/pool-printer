@@ -110,6 +110,22 @@ const de = {
   "jobs.cancelRefund": "Stornieren & Erstatten",
   "jobs.pageOf": "Seite {page} von {totalPages} ({total} gesamt)",
 
+  // Public account page
+  "public.title": "Mein Druckkonto",
+  "public.subtitle": "Guthaben und vergangene Transaktionen einsehen",
+  "public.accountTitle": "Kontodaten",
+  "public.accountDescription": "Dieses Konto wird automatisch über Ihren Windows-Benutzernamen erkannt.",
+  "public.transactionsTitle": "Transaktionsverlauf",
+  "public.transactionsDescription": "Alle bisherigen Buchungen mit druckbarem Beleg.",
+  "public.userResolveFailedTitle": "Windows-Benutzername konnte nicht erkannt werden",
+  "public.userResolveFailedDesc": "Bitte wenden Sie sich an die Aufsicht. Die Erkennung erfolgt automatisch über den Windows-Login des PCs.",
+  "public.accountMissingTitle": "Konto noch nicht vorhanden",
+  "public.accountMissingDesc": "Für Benutzer-ID \"{userId}\" existiert noch kein Konto. Sie können es jetzt anlegen.",
+  "public.createAccount": "Konto jetzt anlegen",
+  "public.accountCreated": "Konto erfolgreich angelegt",
+  "public.accountCreateFailed": "Konto konnte nicht angelegt werden",
+  "public.loadFailed": "Kontodaten konnten nicht geladen werden",
+
   // Settings
   "settings.title": "Einstellungen",
   "settings.printPrices": "Druckpreise",

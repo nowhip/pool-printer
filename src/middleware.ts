@@ -5,6 +5,11 @@ import { getToken } from "next-auth/jwt";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Public self-service page and APIs (no supervisor login)
+  if (pathname === "/public" || pathname.startsWith("/api/public")) {
+    return NextResponse.next();
+  }
+
   // Allow NextAuth API routes
   if (pathname.startsWith("/api/auth")) {
     return NextResponse.next();
@@ -19,6 +24,15 @@ export async function middleware(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     return NextResponse.next();
+  }
+
+  // Root: public for normal users, dashboard for signed-in supervisors
+  if (pathname === "/") {
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+    if (token) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+    return NextResponse.redirect(new URL("/public", request.url));
   }
 
   // Allow login page
@@ -39,11 +53,6 @@ export async function middleware(request: NextRequest) {
     }
     // Pages redirect to login
     return NextResponse.redirect(new URL("/login", request.url));
-  }
-
-  // Redirect root to dashboard
-  if (pathname === "/") {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return NextResponse.next();

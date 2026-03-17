@@ -112,6 +112,22 @@ const en: Record<TranslationKey, string> = {
   "jobs.cancelRefund": "Cancel & Refund",
   "jobs.pageOf": "Page {page} of {totalPages} ({total} total)",
 
+  // Public account page
+  "public.title": "My Print Account",
+  "public.subtitle": "View current balance and past transactions",
+  "public.accountTitle": "Account Details",
+  "public.accountDescription": "This account is automatically detected from your Windows username.",
+  "public.transactionsTitle": "Transaction History",
+  "public.transactionsDescription": "All past bookings with printable receipt.",
+  "public.userResolveFailedTitle": "Windows username could not be detected",
+  "public.userResolveFailedDesc": "Please contact a supervisor. Detection is automatic via the PC's Windows login.",
+  "public.accountMissingTitle": "Account not created yet",
+  "public.accountMissingDesc": "No account exists yet for user ID \"{userId}\". You can create it now.",
+  "public.createAccount": "Create account now",
+  "public.accountCreated": "Account created successfully",
+  "public.accountCreateFailed": "Failed to create account",
+  "public.loadFailed": "Failed to load account data",
+
   // Settings
   "settings.title": "Settings",
   "settings.printPrices": "Print Prices",
