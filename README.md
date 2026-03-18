@@ -76,6 +76,7 @@ Erstelle eine Datei **`.env.local`** im Projektroot (`pool-printer/.env.local`):
 NEXTAUTH_SECRET=ein-langes-zufaelliges-passwort
 NEXTAUTH_URL=http://localhost:3000
 API_KEY=dein-api-key-hier
+LAN_ONLY=1
 ```
 
 #### Alle Umgebungsvariablen – Web-App
@@ -88,12 +89,13 @@ API_KEY=dein-api-key-hier
 
 #### Umgebungsvariablen – Windows SSO Proxy (Optional)
 
-| Variable              | Pflicht | Standard    | Beschreibung                                                                                  |
-| --------------------- | ------- | ----------- | --------------------------------------------------------------------------------------------- |
-| `SSO_PROXY_PORT`      | Nein    | `3000`      | Öffentlicher Port des SSO-Proxys. Hier greifen Benutzer im Browser zu.                        |
-| `NEXT_INTERNAL_PORT`  | Nein    | `3100`      | Interner Next.js-Port hinter dem SSO-Proxy.                                                   |
-| `NEXT_INTERNAL_HOST`  | Nein    | `127.0.0.1` | Host für den internen Next.js-Prozess.                                                        |
-| `SSO_PROXY_SKIP_NEXT` | Nein    | `0`         | Bei `1` startet der Proxy **keinen** internen Next.js-Prozess (für externe Prozesssteuerung). |
+| Variable              | Pflicht | Standard    | Beschreibung                                                                                      |
+| --------------------- | ------- | ----------- | ------------------------------------------------------------------------------------------------- |
+| `SSO_PROXY_PORT`      | Nein    | `3000`      | Öffentlicher Port des SSO-Proxys. Hier greifen Benutzer im Browser zu.                            |
+| `NEXT_INTERNAL_PORT`  | Nein    | `3100`      | Interner Next.js-Port hinter dem SSO-Proxy.                                                       |
+| `NEXT_INTERNAL_HOST`  | Nein    | `127.0.0.1` | Host für den internen Next.js-Prozess.                                                            |
+| `SSO_PROXY_SKIP_NEXT` | Nein    | `0`         | Bei `1` startet der Proxy **keinen** internen Next.js-Prozess (für externe Prozesssteuerung).     |
+| `LAN_ONLY`            | Nein    | `1`         | Bei `1` sind nur Loopback + privates LAN erlaubt (Proxy + `/api/print`). Bei `0` keine IP-Sperre. |
 
 #### Alle Umgebungsvariablen – Print Middleware
 
@@ -318,13 +320,18 @@ Alle Benutzer-IDs werden **systemweit automatisch in Kleinbuchstaben** umgewande
 
 Die Normalisierung greift an **allen Eingabepunkten**:
 
-| Stelle               | Beschreibung                                                                                |
-| -------------------- | ------------------------------------------------------------------------------------------- |
-| **Print Middleware** | Windows-Benutzername (`UserName`) wird bei der Erkennung eines Druckjobs lowercased         |
-| **API-Routen**       | Alle API-Endpunkte (Nutzer-CRUD, Einzahlung, Abbuchung, Reservierung) lowercasen die userId |
-| **Web-UI**           | Nutzererstellung und Suchfilter wandeln Eingaben direkt in Kleinbuchstaben um               |
+| Stelle                | Beschreibung                                                                                 |
+| --------------------- | -------------------------------------------------------------------------------------------- |
+| **Windows SSO Proxy** | SSPI-Benutzer wird aus `DOMAIN\\user` / `user@domain` auf `user` normalisiert und lowercased |
+| **Print Middleware**  | Spooler-Benutzername (`UserName`) wird mit derselben Regel normalisiert und lowercased       |
+| **API-Routen**        | Alle API-Endpunkte (Nutzer-CRUD, Einzahlung, Abbuchung, Reservierung) lowercasen die userId  |
+| **Web-UI**            | Nutzererstellung und Suchfilter wandeln Eingaben direkt in Kleinbuchstaben um                |
 
 > 💡 Das bedeutet: Egal ob ein Windows-Nutzer als `MAXMUSTER`, `MaxMuster` oder `maxmuster` druckt – es wird immer als `maxmuster` verarbeitet.
+>
+> ℹ️ Es gibt **keinen** Fallback auf Server-OS-Usernamen. Verwendet wird immer der Benutzer aus dem jeweiligen Request/Spooler-Job.
+>
+> ✅ In Umgebungen, in denen sich Namen nur durch Groß-/Kleinschreibung unterscheiden, bleiben SSO und Print Middleware konsistent.
 
 ---
 
@@ -537,6 +544,7 @@ Create a file **`.env.local`** in the project root (`pool-printer/.env.local`):
 NEXTAUTH_SECRET=a-long-random-password
 NEXTAUTH_URL=http://localhost:3000
 API_KEY=your-api-key-here
+LAN_ONLY=1
 ```
 
 #### All Environment Variables – Web App
@@ -549,12 +557,13 @@ API_KEY=your-api-key-here
 
 #### Environment Variables – Windows SSO Proxy (Optional)
 
-| Variable              | Required | Default     | Description                                                                      |
-| --------------------- | -------- | ----------- | -------------------------------------------------------------------------------- |
-| `SSO_PROXY_PORT`      | No       | `3000`      | Public port of the SSO proxy. This is where users access the app in the browser. |
-| `NEXT_INTERNAL_PORT`  | No       | `3100`      | Internal Next.js port behind the SSO proxy.                                      |
-| `NEXT_INTERNAL_HOST`  | No       | `127.0.0.1` | Host used for the internal Next.js process.                                      |
-| `SSO_PROXY_SKIP_NEXT` | No       | `0`         | If set to `1`, the proxy does **not** launch an internal Next.js process.        |
+| Variable              | Required | Default     | Description                                                                                        |
+| --------------------- | -------- | ----------- | -------------------------------------------------------------------------------------------------- |
+| `SSO_PROXY_PORT`      | No       | `3000`      | Public port of the SSO proxy. This is where users access the app in the browser.                   |
+| `NEXT_INTERNAL_PORT`  | No       | `3100`      | Internal Next.js port behind the SSO proxy.                                                        |
+| `NEXT_INTERNAL_HOST`  | No       | `127.0.0.1` | Host used for the internal Next.js process.                                                        |
+| `SSO_PROXY_SKIP_NEXT` | No       | `0`         | If set to `1`, the proxy does **not** launch an internal Next.js process.                          |
+| `LAN_ONLY`            | No       | `1`         | If `1`, only loopback + private LAN are allowed (proxy + `/api/print`). If `0`, no IP restriction. |
 
 #### All Environment Variables – Print Middleware
 
@@ -777,13 +786,18 @@ All user IDs are **automatically lowercased system-wide**. This prevents duplica
 
 Normalization is applied at **all entry points**:
 
-| Location             | Description                                                                  |
-| -------------------- | ---------------------------------------------------------------------------- |
-| **Print Middleware** | Windows username (`UserName`) is lowercased when a print job is detected     |
-| **API Routes**       | All API endpoints (user CRUD, deposit, charge, reserve) lowercase the userId |
-| **Web UI**           | User creation and search filters convert inputs to lowercase immediately     |
+| Location              | Description                                                                          |
+| --------------------- | ------------------------------------------------------------------------------------ |
+| **Windows SSO Proxy** | SSPI user is normalized from `DOMAIN\\user` / `user@domain` to `user` and lowercased |
+| **Print Middleware**  | Spooler username (`UserName`) is normalized with the same rule and lowercased        |
+| **API Routes**        | All API endpoints (user CRUD, deposit, charge, reserve) lowercase the userId         |
+| **Web UI**            | User creation and search filters convert inputs to lowercase immediately             |
 
 > 💡 This means: regardless of whether a Windows user prints as `MAXMUSTER`, `MaxMuster`, or `maxmuster` – it is always processed as `maxmuster`.
+>
+> ℹ️ There is **no** fallback to the server OS username. The identity always comes from the current request/spooler job.
+>
+> ✅ In environments where names differ only by letter case, SSO and Print Middleware stay consistent.
 
 ---
 

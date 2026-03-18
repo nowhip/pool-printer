@@ -92,6 +92,21 @@ function jobKey(printerName: string, jobId: number): string {
   return `${printerName}:${jobId}`;
 }
 
+function normalizeUserId(rawValue: string): string {
+  const value = rawValue.trim().replace(/^"+|"+$/g, "");
+  if (!value) return "";
+
+  const withoutDomainSlash = value.includes("\\")
+    ? value.split("\\").pop() || ""
+    : value;
+
+  const withoutDomainAt = withoutDomainSlash.includes("@")
+    ? withoutDomainSlash.split("@")[0]
+    : withoutDomainSlash;
+
+  return withoutDomainAt.trim().toLowerCase();
+}
+
 function hasTrackedJobsForPrinter(printerName: string): boolean {
   for (const tracked of trackedJobs.values()) {
     if (tracked.printerName === printerName) return true;
@@ -186,7 +201,7 @@ async function handlePausedJobs(): Promise<void> {
     const printerType = getPrinterType(job.PrinterName);
     const copies = job.Copies || 1;
     const pages = (job.TotalPages || 1) * copies;
-    const userId = (job.UserName || "unknown").toLowerCase();
+    const userId = normalizeUserId(job.UserName || "") || "unknown";
 
     console.log(`[NEW] Job #${id} from ${userId} on ${job.PrinterName} (${job.TotalPages || 1} pages x ${copies} copies = ${pages} total, ${printerType}, status: ${job.JobStatus})`);
 

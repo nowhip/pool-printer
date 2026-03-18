@@ -1,5 +1,4 @@
 import "server-only";
-import os from "node:os";
 
 const USERNAME_HEADERS = [
   "x-remote-user",
@@ -30,26 +29,6 @@ function normalizeUserId(rawValue: string): string {
   return withoutDomainAt.trim().toLowerCase();
 }
 
-function isLocalRequest(headers: Headers): boolean {
-  const host = (headers.get("x-forwarded-host") || headers.get("host") || "").toLowerCase();
-  const forwardedFor = (headers.get("x-forwarded-for") || "").toLowerCase();
-  const realIp = (headers.get("x-real-ip") || "").toLowerCase();
-
-  const hostLooksLocal =
-    host.startsWith("localhost") ||
-    host.startsWith("127.0.0.1") ||
-    host.startsWith("[::1]");
-
-  const ipLooksLocal =
-    !forwardedFor ||
-    forwardedFor.includes("127.0.0.1") ||
-    forwardedFor.includes("::1") ||
-    realIp === "127.0.0.1" ||
-    realIp === "::1";
-
-  return hostLooksLocal && ipLooksLocal;
-}
-
 export function resolveWindowsUser(headers: Headers): ResolvedWindowsUser | null {
   for (const headerName of USERNAME_HEADERS) {
     const headerValue = headers.get(headerName);
@@ -58,22 +37,6 @@ export function resolveWindowsUser(headers: Headers): ResolvedWindowsUser | null
     const normalized = normalizeUserId(headerValue);
     if (normalized) {
       return { userId: normalized, source: `header:${headerName}` };
-    }
-  }
-
-  if (isLocalRequest(headers)) {
-    const envUser = normalizeUserId(process.env.USERNAME || process.env.USER || "");
-    if (envUser) {
-      return { userId: envUser, source: "server-env" };
-    }
-
-    try {
-      const osUser = normalizeUserId(os.userInfo().username);
-      if (osUser) {
-        return { userId: osUser, source: "os.userInfo" };
-      }
-    } catch {
-      // ignore fallback errors
     }
   }
 

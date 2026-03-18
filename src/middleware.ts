@@ -2,6 +2,52 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
+const LAN_ONLY = process.env.LAN_ONLY !== "0";
+
+function isPrivateOrLoopbackIp(ip: string): boolean {
+  const normalized = ip.replace(/^::ffff:/, "").toLowerCase();
+
+  if (normalized === "127.0.0.1" || normalized === "::1") {
+    return true;
+  }
+
+  if (normalized.startsWith("10.")) {
+    return true;
+  }
+
+  if (normalized.startsWith("192.168.")) {
+    return true;
+  }
+
+  if (normalized.startsWith("172.")) {
+    const secondOctet = Number.parseInt(normalized.split(".")[1] || "0", 10);
+    return secondOctet >= 16 && secondOctet <= 31;
+  }
+
+  if (normalized.startsWith("fc") || normalized.startsWith("fd") || normalized.startsWith("fe80:")) {
+    return true;
+  }
+
+  return false;
+}
+
+function getClientIp(request: NextRequest): string {
+  const forwardedFor = request.headers.get("x-forwarded-for");
+  if (forwardedFor) {
+    const firstIp = forwardedFor.split(",")[0]?.trim();
+    if (firstIp) {
+      return firstIp;
+    }
+  }
+
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) {
+    return realIp.trim();
+  }
+
+  return "127.0.0.1";
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -17,6 +63,13 @@ export async function middleware(request: NextRequest) {
 
   // Protect print middleware API routes with API_KEY
   if (pathname.startsWith("/api/print")) {
+    if (LAN_ONLY) {
+      const clientIp = getClientIp(request);
+      if (!isPrivateOrLoopbackIp(clientIp)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+
     const authHeader = request.headers.get("authorization");
     const apiKey = process.env.API_KEY;
 

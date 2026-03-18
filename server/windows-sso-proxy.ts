@@ -24,19 +24,62 @@ const nextPort = parseInt(process.env.NEXT_INTERNAL_PORT || "3100", 10);
 const nextHost = process.env.NEXT_INTERNAL_HOST || "127.0.0.1";
 const userHeader = "x-remote-user";
 const skipNextLaunch = process.env.SSO_PROXY_SKIP_NEXT === "1";
+const lanOnly = process.env.LAN_ONLY !== "0";
 
 if (!process.env.NEXTAUTH_URL) {
   process.env.NEXTAUTH_URL = `http://localhost:${proxyPort}`;
 }
 
+function normalizeUserId(rawValue: string): string {
+  const value = rawValue.trim().replace(/^"+|"+$/g, "");
+  if (!value) return "";
+
+  const withoutDomainSlash = value.includes("\\")
+    ? value.split("\\").pop() || ""
+    : value;
+
+  const withoutDomainAt = withoutDomainSlash.includes("@")
+    ? withoutDomainSlash.split("@")[0]
+    : withoutDomainSlash;
+
+  return withoutDomainAt.trim().toLowerCase();
+}
+
 function getWindowsUser(req: SsoRequest): string | null {
+  const domain = req.sso?.user?.domain?.trim();
   const name = req.sso?.user?.name?.trim();
-  if (!name) {
-    return null;
+  const rawUser = domain ? `${domain}\\${name || ""}` : name || "";
+  const normalized = normalizeUserId(rawUser);
+  return normalized || null;
+}
+
+function isAllowedClientAddress(remoteAddress?: string | null): boolean {
+  if (!remoteAddress) return false;
+
+  const normalized = remoteAddress.replace(/^::ffff:/, "").toLowerCase();
+
+  if (normalized === "127.0.0.1" || normalized === "::1") {
+    return true;
   }
 
-  const domain = req.sso?.user?.domain?.trim();
-  return domain ? `${domain}\\${name}` : name;
+  if (normalized.startsWith("10.")) {
+    return true;
+  }
+
+  if (normalized.startsWith("192.168.")) {
+    return true;
+  }
+
+  if (normalized.startsWith("172.")) {
+    const secondOctet = Number.parseInt(normalized.split(".")[1] || "0", 10);
+    return secondOctet >= 16 && secondOctet <= 31;
+  }
+
+  if (normalized.startsWith("fc") || normalized.startsWith("fd") || normalized.startsWith("fe80:")) {
+    return true;
+  }
+
+  return false;
 }
 
 function sendBadGateway(res: ServerResponse, message: string) {
@@ -121,6 +164,15 @@ const server = createServer((req, res) => {
     return;
   }
 
+  if (lanOnly) {
+    const clientAddress = req.socket.remoteAddress;
+    if (!isAllowedClientAddress(clientAddress)) {
+      res.statusCode = 403;
+      res.end("Forbidden");
+      return;
+    }
+  }
+
   ssoAuth(req, res, (error?: unknown) => {
     if (error) {
       console.error("[SSO PROXY] SSO auth callback error:", error);
@@ -140,6 +192,7 @@ server.listen(proxyPort, () => {
   console.log(`[SSO PROXY] Public URL: http://localhost:${proxyPort}`);
   console.log(`[SSO PROXY] Forwarding to Next.js at http://${nextHost}:${nextPort}`);
   console.log(`[SSO PROXY] Forwarded user header: ${userHeader}`);
+  console.log(`[SSO PROXY] Access policy: ${lanOnly ? "loopback + private LAN only" : "unrestricted"}.`);
   if (skipNextLaunch) {
     console.log("[SSO PROXY] Next.js auto-launch is disabled (SSO_PROXY_SKIP_NEXT=1).");
   }
