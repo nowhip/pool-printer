@@ -161,35 +161,7 @@ Wichtige Laufzeitlogik:
   - betroffene `transactions` gelöscht
   - betroffene `users` gelöscht
 
-### 7) Starten in Entwicklung
-
-#### Minimal (nur Web-App)
-
-```bash
-npm run dev
-```
-
-#### Voller lokaler Stack (empfohlen zum Testen)
-
-Terminal 1 (Web-App mit SSO-Proxy):
-
-```bash
-npm run start:sso
-```
-
-Terminal 2 (Print Middleware):
-
-```bash
-npx tsx print-middleware/index.ts
-```
-
-Optionales Terminal 3 nur wenn `SSO_PROXY_SKIP_NEXT=1`:
-
-```bash
-npm run start
-```
-
-### 8) Starten in Produktion
+### 7) Starten in Produktion
 
 1. Build erstellen:
 
@@ -209,9 +181,9 @@ npm run start:sso
 npx tsx print-middleware/index.ts
 ```
 
-### 9) PM2 Autostart
+### 8) PM2 Autostart
 
-#### 9.1 Prozesse in PM2 anlegen
+#### 8.1 Prozesse in PM2 anlegen
 
 ```bash
 pm2 start npm --name pool-sso -- run start:sso
@@ -224,21 +196,13 @@ Wenn du `SSO_PROXY_SKIP_NEXT=1` nutzt, zusätzlich:
 pm2 start npm --name pool-next -- run start
 ```
 
-#### 9.2 Prozessliste speichern
+#### 8.2 Prozessliste speichern
 
 ```bash
 pm2 save
 ```
 
-#### 9.3 Autostart aktivieren
-
-Linux/macOS:
-
-```bash
-pm2 startup
-```
-
-Windows:
+#### 8.3 Autostart aktivieren (Windows)
 
 - PM2 selbst verwaltet Prozesse, aber Boot-Autostart wird in Windows typischerweise per Task Scheduler/Service ergänzt.
 - Praxis: PM2 beim Systemstart ausführen und danach `pm2 resurrect` aufrufen.
@@ -249,9 +213,9 @@ Beispiel (manuell/testweise):
 pm2 resurrect
 ```
 
-### 10) Betriebslogik (End-to-End)
+### 9) Betriebslogik (End-to-End)
 
-#### 10.1 Supervisor-Bereich
+#### 9.1 Supervisor-Bereich
 
 - Login über `/login`
 - Dashboard zeigt Kennzahlen inkl. manueller Aufträge/Umsatz
@@ -260,14 +224,14 @@ pm2 resurrect
   - `Löschanträge`
 - Nutzer mit `deletion_requested` sind aus normalen Abläufen ausgeklinkt
 
-#### 10.2 Self-Service (`/public`)
+#### 9.2 Self-Service (`/public`)
 
 - User wird über SSO-Header aufgelöst (z. B. `x-remote-user`)
 - Falls kein Konto existiert: Konto kann angelegt werden
 - Kontostand + Transaktionen sichtbar
 - Löschantrag kann vom User selbst gestellt und innerhalb von 7 Tagen widerrufen werden
 
-#### 10.3 Druckfluss
+#### 9.3 Druckfluss
 
 1. Print Middleware erkennt Job im Spooler
 2. `/api/print/reserve` prüft:
@@ -278,7 +242,7 @@ pm2 resurrect
 4. Bei erfolgreichem Druck: `/api/print/confirm` -> `completed`
 5. Bei Fehler/Timeout: `/api/print/cancel` -> Refund + `refunded`
 
-#### 10.4 Löschantrag (7 Tage)
+#### 9.4 Löschantrag (7 Tage)
 
 - Kein sofortiges Hard-Delete mehr
 - Statuswechsel auf `deletion_requested`
@@ -288,7 +252,7 @@ pm2 resurrect
   - User selbst (`/api/public/account-deletion` mit `restore=true`)
 - Nach Ablauf werden User + zugehörige Transaktionen automatisch entfernt
 
-### 11) API-Übersicht (wichtigste Routen)
+### 10) API-Übersicht (wichtigste Routen)
 
 Public:
 
@@ -314,26 +278,6 @@ Print Middleware (API Key geschützt):
 - `POST /api/print/reserve`
 - `POST /api/print/confirm`
 - `POST /api/print/cancel`
-
-### 12) Typische Wartung
-
-DB neu aufsetzen:
-
-```bash
-npm run db:init
-```
-
-Build prüfen:
-
-```bash
-npm run build
-```
-
-Lint prüfen:
-
-```bash
-npm run lint
-```
 
 ---
 
@@ -464,35 +408,7 @@ Runtime cleanup:
   - matching `transactions` deleted
   - matching `users` deleted
 
-### 7) Running locally
-
-Minimal app-only mode:
-
-```bash
-npm run dev
-```
-
-Full local stack:
-
-Terminal 1:
-
-```bash
-npm run start:sso
-```
-
-Terminal 2:
-
-```bash
-npx tsx print-middleware/index.ts
-```
-
-Optional Terminal 3 if `SSO_PROXY_SKIP_NEXT=1`:
-
-```bash
-npm run start
-```
-
-### 8) Production run
+### 7) Production run
 
 1. Build:
 
@@ -512,7 +428,7 @@ npm run start:sso
 npx tsx print-middleware/index.ts
 ```
 
-### 9) PM2 auto-start
+### 8) PM2 auto-start
 
 Create PM2 processes:
 
@@ -533,15 +449,7 @@ Persist process list:
 pm2 save
 ```
 
-Enable startup:
-
-Linux/macOS:
-
-```bash
-pm2 startup
-```
-
-Windows:
+Enable startup (Windows):
 
 - Use PM2 with a startup task/service pattern and run `pm2 resurrect` after boot.
 
@@ -551,7 +459,7 @@ Manual restore example:
 pm2 resurrect
 ```
 
-### 10) Operational flows
+### 9) Operational flows
 
 Supervisor flow:
 
@@ -579,7 +487,7 @@ Deletion-request flow:
 - Restorable by supervisor or user during 7-day window
 - Automatically purged after expiry
 
-### 11) Key API routes
+### 10) Key API routes
 
 Public:
 
@@ -604,23 +512,3 @@ Print middleware:
 - `POST /api/print/reserve`
 - `POST /api/print/confirm`
 - `POST /api/print/cancel`
-
-### 12) Maintenance commands
-
-Reinitialize DB:
-
-```bash
-npm run db:init
-```
-
-Build check:
-
-```bash
-npm run build
-```
-
-Lint check:
-
-```bash
-npm run lint
-```
