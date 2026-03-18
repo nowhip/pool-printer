@@ -90,10 +90,14 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const formatCurrency = useCallback(
     (cents: number): string => {
-      return new Intl.NumberFormat(locale === "de" ? "de-DE" : "en-US", {
-        style: "currency",
-        currency: "EUR",
-      }).format(cents / 100);
+      const formatted = new Intl.NumberFormat(
+        locale === "de" ? "de-DE" : "en-US",
+        {
+          style: "currency",
+          currency: "EUR",
+        },
+      ).format(cents / 100);
+      return formatted.replace(/[\u00A0\u202F]€/g, "€").replace(/\s+€/g, "€");
     },
     [locale],
   );

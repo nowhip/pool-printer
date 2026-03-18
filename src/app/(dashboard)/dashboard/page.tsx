@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useI18n } from "@/lib/i18n";
 import type { TranslationKey } from "@/lib/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   FileText,
@@ -76,10 +77,10 @@ export default function DashboardPage() {
           {[...Array(6)].map((_, i) => (
             <Card key={i}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+                <Skeleton className="h-4 w-24" />
               </CardHeader>
               <CardContent>
-                <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+                <Skeleton className="h-8 w-16" />
               </CardContent>
             </Card>
           ))}

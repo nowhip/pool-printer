@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
   MoreHorizontal,
@@ -228,14 +229,34 @@ export default function JobsPage() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell
-                  colSpan={8}
-                  className="text-center py-8 text-muted-foreground"
-                >
-                  {t("common.loading")}
-                </TableCell>
-              </TableRow>
+              [...Array(6)].map((_, index) => (
+                <TableRow key={`skeleton-${index}`}>
+                  <TableCell>
+                    <Skeleton className="h-4 w-10" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-28" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-32" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-20" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-10" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-6 w-24 rounded-full" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-40" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-8 w-8" />
+                  </TableCell>
+                </TableRow>
+              ))
             ) : transactions.length === 0 ? (
               <TableRow>
                 <TableCell

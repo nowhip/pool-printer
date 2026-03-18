@@ -13,6 +13,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -58,6 +59,7 @@ export default function SettingsPage() {
   const [savingPrices, setSavingPrices] = useState(false);
   const [sessionTimeout, setSessionTimeout] = useState("");
   const [savingTimeout, setSavingTimeout] = useState(false);
+  const [loadingInitial, setLoadingInitial] = useState(true);
   const [deleteSupervisorTarget, setDeleteSupervisorTarget] =
     useState<Supervisor | null>(null);
 
@@ -84,8 +86,16 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    fetchSettings();
-    fetchSupervisors();
+    const loadInitialData = async () => {
+      setLoadingInitial(true);
+      try {
+        await Promise.all([fetchSettings(), fetchSupervisors()]);
+      } finally {
+        setLoadingInitial(false);
+      }
+    };
+
+    loadInitialData();
   }, [fetchSettings, fetchSupervisors]);
 
   const handleSavePrices = async () => {
@@ -200,182 +210,206 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">{t("settings.title")}</h1>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Print Prices */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Euro className="h-5 w-5" />
-              {t("settings.printPrices")}
-            </CardTitle>
-            <CardDescription>{t("settings.priceDescription")}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="priceBw">{t("settings.bwPrice")}</Label>
-                <Input
-                  id="priceBw"
-                  type="number"
-                  min="0"
-                  value={priceBw}
-                  onChange={(e) => setPriceBw(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {t("settings.current")}: {priceBw} ct ={" "}
-                  {formatCurrency(parseInt(priceBw || "0", 10))}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="priceColor">{t("settings.colorPrice")}</Label>
-                <Input
-                  id="priceColor"
-                  type="number"
-                  min="0"
-                  value={priceColor}
-                  onChange={(e) => setPriceColor(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {t("settings.current")}: {priceColor} ct ={" "}
-                  {formatCurrency(parseInt(priceColor || "0", 10))}
-                </p>
-              </div>
-            </div>
-            <Button onClick={handleSavePrices} disabled={savingPrices}>
-              <Save className="h-4 w-4 mr-2" /> {t("settings.savePrices")}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Session Timeout */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              {t("settings.sessionTimeout")}
-            </CardTitle>
-            <CardDescription>
-              {t("settings.sessionTimeoutDescription")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="sessionTimeout">
-                {t("settings.sessionTimeoutMinutes")}
-              </Label>
-              <Input
-                id="sessionTimeout"
-                type="number"
-                min="0"
-                value={sessionTimeout}
-                onChange={(e) => setSessionTimeout(e.target.value)}
-              />
-              {parseInt(sessionTimeout || "0", 10) === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {t("settings.sessionTimeoutDisabled")}
-                </p>
-              )}
-            </div>
-            <Button onClick={handleSaveTimeout} disabled={savingTimeout}>
-              <Save className="h-4 w-4 mr-2" /> {t("common.save")}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Supervisors */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
+      {loadingInitial ? (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {[...Array(3)].map((_, index) => (
+            <Card key={`settings-skeleton-${index}`}>
+              <CardHeader className="space-y-2">
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-4 w-64" />
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-9 w-32" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Print Prices */}
+          <Card>
+            <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5" />
-                {t("settings.supervisors")}
+                <Euro className="h-5 w-5" />
+                {t("settings.printPrices")}
               </CardTitle>
               <CardDescription>
-                {t("settings.manageSupervisors")}
+                {t("settings.priceDescription")}
               </CardDescription>
-            </div>
-            <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <Plus className="h-4 w-4 mr-2" />{" "}
-                  {t("settings.addSupervisor")}
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{t("settings.addSupervisor")}</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="supUsername">{t("common.username")}</Label>
-                    <Input
-                      id="supUsername"
-                      value={newUsername}
-                      onChange={(e) => setNewUsername(e.target.value)}
-                      placeholder={t("common.username")}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="supPassword">{t("common.password")}</Label>
-                    <Input
-                      id="supPassword"
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder={t("common.password")}
-                    />
-                  </div>
-                  <Button onClick={handleAddSupervisor} className="w-full">
-                    {t("settings.createSupervisor")}
-                  </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="priceBw">{t("settings.bwPrice")}</Label>
+                  <Input
+                    id="priceBw"
+                    type="number"
+                    min="0"
+                    value={priceBw}
+                    onChange={(e) => setPriceBw(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t("settings.current")}: {priceBw} ct ={" "}
+                    {formatCurrency(parseInt(priceBw || "0", 10))}
+                  </p>
                 </div>
-              </DialogContent>
-            </Dialog>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("common.username")}</TableHead>
-                  <TableHead className="w-[80px]">
-                    {t("common.actions")}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {supervisors.map((sup) => (
-                  <TableRow key={sup.id}>
-                    <TableCell className="font-medium">
-                      {sup.username}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          if (sup.username === session?.user?.name) {
-                            toast.error(t("toast.cannotDeleteSelf"));
-                            return;
-                          }
-                          setDeleteSupervisorTarget(sup);
-                        }}
-                        disabled={sup.username === session?.user?.name}
-                        title={
-                          sup.username === session?.user?.name
-                            ? t("settings.cannotDeleteSelf")
-                            : t("settings.deleteSupervisor")
-                        }
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </TableCell>
+                <div className="space-y-2">
+                  <Label htmlFor="priceColor">{t("settings.colorPrice")}</Label>
+                  <Input
+                    id="priceColor"
+                    type="number"
+                    min="0"
+                    value={priceColor}
+                    onChange={(e) => setPriceColor(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t("settings.current")}: {priceColor} ct ={" "}
+                    {formatCurrency(parseInt(priceColor || "0", 10))}
+                  </p>
+                </div>
+              </div>
+              <Button onClick={handleSavePrices} disabled={savingPrices}>
+                <Save className="h-4 w-4 mr-2" /> {t("settings.savePrices")}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Session Timeout */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                {t("settings.sessionTimeout")}
+              </CardTitle>
+              <CardDescription>
+                {t("settings.sessionTimeoutDescription")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="sessionTimeout">
+                  {t("settings.sessionTimeoutMinutes")}
+                </Label>
+                <Input
+                  id="sessionTimeout"
+                  type="number"
+                  min="0"
+                  value={sessionTimeout}
+                  onChange={(e) => setSessionTimeout(e.target.value)}
+                />
+                {parseInt(sessionTimeout || "0", 10) === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {t("settings.sessionTimeoutDisabled")}
+                  </p>
+                )}
+              </div>
+              <Button onClick={handleSaveTimeout} disabled={savingTimeout}>
+                <Save className="h-4 w-4 mr-2" /> {t("common.save")}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Supervisors */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5" />
+                  {t("settings.supervisors")}
+                </CardTitle>
+                <CardDescription>
+                  {t("settings.manageSupervisors")}
+                </CardDescription>
+              </div>
+              <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <Plus className="h-4 w-4 mr-2" />{" "}
+                    {t("settings.addSupervisor")}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>{t("settings.addSupervisor")}</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="supUsername">
+                        {t("common.username")}
+                      </Label>
+                      <Input
+                        id="supUsername"
+                        value={newUsername}
+                        onChange={(e) => setNewUsername(e.target.value)}
+                        placeholder={t("common.username")}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="supPassword">
+                        {t("common.password")}
+                      </Label>
+                      <Input
+                        id="supPassword"
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder={t("common.password")}
+                      />
+                    </div>
+                    <Button onClick={handleAddSupervisor} className="w-full">
+                      {t("settings.createSupervisor")}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("common.username")}</TableHead>
+                    <TableHead className="w-[80px]">
+                      {t("common.actions")}
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
+                </TableHeader>
+                <TableBody>
+                  {supervisors.map((sup) => (
+                    <TableRow key={sup.id}>
+                      <TableCell className="font-medium">
+                        {sup.username}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            if (sup.username === session?.user?.name) {
+                              toast.error(t("toast.cannotDeleteSelf"));
+                              return;
+                            }
+                            setDeleteSupervisorTarget(sup);
+                          }}
+                          disabled={sup.username === session?.user?.name}
+                          title={
+                            sup.username === session?.user?.name
+                              ? t("settings.cannotDeleteSelf")
+                              : t("settings.deleteSupervisor")
+                          }
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Supervisor Delete Confirmation */}
       <AlertDialog

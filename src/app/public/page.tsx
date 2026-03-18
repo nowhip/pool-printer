@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -268,7 +269,19 @@ export default function PublicPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {loading ? (
-              <p className="text-muted-foreground">{t("common.loading")}</p>
+              <div className="space-y-3">
+                <Skeleton className="h-5 w-44" />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-md border p-3 space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-5 w-28" />
+                  </div>
+                  <div className="rounded-md border p-3 space-y-2">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-5 w-24" />
+                  </div>
+                </div>
+              </div>
             ) : !account?.resolved ? (
               <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
                 <p className="font-medium">
@@ -292,7 +305,11 @@ export default function PublicPage() {
                   })}
                 </p>
                 <Button onClick={handleCreateAccount} disabled={creating}>
-                  {creating ? t("common.loading") : t("public.createAccount")}
+                  {creating ? (
+                    <Skeleton className="h-4 w-28" />
+                  ) : (
+                    t("public.createAccount")
+                  )}
                 </Button>
               </div>
             ) : (

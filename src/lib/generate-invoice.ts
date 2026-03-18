@@ -150,11 +150,17 @@ function formatCurrency(
   locale: Locale,
   currency: string,
 ): string {
-  return new Intl.NumberFormat(locale === "de" ? "de-DE" : "en-US", {
+  const formatted = new Intl.NumberFormat(locale === "de" ? "de-DE" : "en-US", {
     style: "currency",
     currency,
   }).format(cents / 100);
+  if (currency.toUpperCase() !== "EUR") {
+    return formatted;
+  }
+  return formatted.replace(/[\u00A0\u202F]€/g, "€").replace(/\s+€/g, "€");
 }
+
+
 
 function formatDateTime(dateStr: string, locale: Locale): string {
   const d = new Date(dateStr);

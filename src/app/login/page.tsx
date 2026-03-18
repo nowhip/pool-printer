@@ -15,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -159,7 +160,7 @@ export default function LoginPage() {
               <p className="text-sm text-destructive text-center">{error}</p>
             )}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? t("login.signingIn") : t("login.signIn")}
+              {loading ? <Skeleton className="h-4 w-24" /> : t("login.signIn")}
             </Button>
           </form>
           <div className="mt-4 flex items-start gap-2 rounded-md bg-muted p-3 text-xs text-muted-foreground">

@@ -32,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
   Search,
@@ -78,11 +79,14 @@ export default function UsersPage() {
   const [newUserIsFree, setNewUserIsFree] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [loadingUserTransactions, setLoadingUserTransactions] = useState(false);
   const [chargeAmount, setChargeAmount] = useState("");
   const [chargeDescription, setChargeDescription] = useState("");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const searchUsers = useCallback(async (query?: string) => {
+    setLoadingUsers(true);
     try {
       const searchVal = (query ?? "").toLowerCase();
       const url = searchVal
@@ -93,10 +97,13 @@ export default function UsersPage() {
       setUsers(data);
     } catch (error) {
       console.error("Failed to search users:", error);
+    } finally {
+      setLoadingUsers(false);
     }
   }, []);
 
   const fetchUserTransactions = useCallback(async (userId: string) => {
+    setLoadingUserTransactions(true);
     try {
       const res = await fetch(
         `/api/transactions?userId=${encodeURIComponent(userId)}&exact=1&limit=20`,
@@ -105,6 +112,8 @@ export default function UsersPage() {
       setUserTransactions(data.transactions || []);
     } catch (error) {
       console.error("Failed to fetch transactions:", error);
+    } finally {
+      setLoadingUserTransactions(false);
     }
   }, []);
 
@@ -396,7 +405,21 @@ export default function UsersPage() {
       </div>
 
       {/* User Cards Grid */}
-      {users.length === 0 ? (
+      {loadingUsers ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {[...Array(8)].map((_, index) => (
+            <Card key={`user-skeleton-${index}`}>
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <Skeleton className="h-5 w-28" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+                <Skeleton className="h-4 w-32" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : users.length === 0 ? (
         <p className="text-muted-foreground text-sm">
           {t("users.noUsersFound")}
         </p>
@@ -585,7 +608,23 @@ export default function UsersPage() {
                   <h3 className="font-semibold text-sm">
                     {t("users.recentTransactions")}
                   </h3>
-                  {userTransactions.length === 0 ? (
+                  {loadingUserTransactions ? (
+                    <div className="space-y-2">
+                      {[...Array(4)].map((_, index) => (
+                        <div
+                          key={`tx-skeleton-${index}`}
+                          className="grid grid-cols-6 gap-3 rounded-md border p-3"
+                        >
+                          <Skeleton className="h-4 w-full" />
+                          <Skeleton className="h-4 w-20" />
+                          <Skeleton className="h-4 w-8" />
+                          <Skeleton className="h-6 w-24 rounded-full" />
+                          <Skeleton className="h-4 w-full" />
+                          <Skeleton className="h-8 w-8" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : userTransactions.length === 0 ? (
                     <p className="text-muted-foreground text-sm">
                       {t("users.noTransactions")}
                     </p>
