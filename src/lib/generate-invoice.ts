@@ -97,7 +97,7 @@ const labels: Record<
     descriptionPrintBw: "Druckauftrag – Schwarz/Weiß",
     descriptionPrintColor: "Druckauftrag – Farbe",
     descriptionManual: "Manuelle Abbuchung",
-    itemLabel: "Position",
+    itemLabel: "Beschreibung",
     unitPrice: "Einzelpreis",
     quantity: "Menge",
     total: "Gesamt",
@@ -135,7 +135,7 @@ const labels: Record<
     descriptionPrintBw: "Print job – Black & White",
     descriptionPrintColor: "Print job – Color",
     descriptionManual: "Manual charge",
-    itemLabel: "Item",
+    itemLabel: "Description",
     unitPrice: "Unit price",
     quantity: "Qty",
     total: "Total",
@@ -337,12 +337,7 @@ export async function generateInvoicePDF(
   drawRow(l.status, getStatusLabel(tx.status, l));
 
   // --- Description section ---
-  y += 6;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(30, 30, 30);
-  doc.text(l.descriptionLabel, margin, y);
-  y += 3;
+  y += 10;
 
   // Description text
   let descriptionText: string;
@@ -369,6 +364,7 @@ export async function generateInvoicePDF(
   const colQty = margin + 100;
   const colUnitPrice = margin + 120;
   const colTotal = pageWidth - margin;
+  const showPrintColumns = tx.type === "print_bw" || tx.type === "print_color";
 
   // Table header
   doc.setFillColor(240, 240, 245);
@@ -379,7 +375,7 @@ export async function generateInvoicePDF(
   doc.setFontSize(9);
   doc.setTextColor(60, 60, 60);
   doc.text(l.itemLabel, colItem + 3, y);
-  if (tx.type !== "deposit") {
+  if (showPrintColumns) {
     doc.text(l.quantity, colQty, y);
     doc.text(l.unitPrice, colUnitPrice, y);
   }
@@ -394,14 +390,14 @@ export async function generateInvoicePDF(
   doc.text(descriptionText, colItem + 3, y);
 
   const absCents = Math.abs(tx.amount);
+  const amountValue = formatCurrency(absCents, locale, cfg.currency);
   const amountSuffix = tx.status === "refunded"
     ? l.reimbursed
     : tx.type === "deposit"
       ? l.credited
       : l.paid;
-  const amountWithStatus = `${formatCurrency(absCents, locale, cfg.currency)} ${amountSuffix}`;
 
-  if (tx.type !== "deposit" && tx.pages && tx.pages > 0) {
+  if (showPrintColumns && tx.pages && tx.pages > 0) {
     doc.text(String(tx.pages), colQty, y);
     const pricePerPage = absCents / tx.pages;
     doc.text(
@@ -410,80 +406,20 @@ export async function generateInvoicePDF(
       y,
     );
   }
-  doc.text(amountWithStatus, colTotal - 3, y, {
+  doc.text(amountValue, colTotal - 3, y, {
+    align: "right",
+  });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(90, 90, 90);
+  doc.text(amountSuffix, colTotal - 3, y + 4.5, {
     align: "right",
   });
 
-  y += 4;
+  y += 8;
   doc.setDrawColor(220, 220, 220);
   doc.setLineWidth(0.3);
   doc.line(margin, y, pageWidth - margin, y);
-
-  // --- Totals section ---
-  y += 8;
-
-  if (cfg.taxRate > 0) {
-    const netCents = Math.round(absCents / (1 + cfg.taxRate / 100));
-    const taxCents = absCents - netCents;
-
-    // Net
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(80, 80, 80);
-    doc.text(l.netAmount, colUnitPrice, y);
-    doc.setTextColor(30, 30, 30);
-    doc.text(
-      formatCurrency(netCents, locale, cfg.currency),
-      colTotal - 3,
-      y,
-      { align: "right" },
-    );
-    y += 6;
-
-    // Tax
-    doc.setTextColor(80, 80, 80);
-    doc.text(`${l.tax} (${cfg.taxRate}%)`, colUnitPrice, y);
-    doc.setTextColor(30, 30, 30);
-    doc.text(
-      formatCurrency(taxCents, locale, cfg.currency),
-      colTotal - 3,
-      y,
-      { align: "right" },
-    );
-    y += 8;
-
-    // Gross (highlighted)
-    doc.setDrawColor(200, 200, 200);
-    doc.setFillColor(245, 245, 250);
-    doc.roundedRect(colUnitPrice - 5, y - 5, pageWidth - margin - colUnitPrice + 8, 12, 2, 2, "FD");
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.setTextColor(30, 30, 30);
-    doc.text(l.grossAmount, colUnitPrice, y + 2);
-    doc.text(
-      amountWithStatus,
-      colTotal - 3,
-      y + 2,
-      { align: "right" },
-    );
-  } else {
-    // Without tax: single total
-    doc.setDrawColor(200, 200, 200);
-    doc.setFillColor(245, 245, 250);
-    doc.roundedRect(colUnitPrice - 5, y - 5, pageWidth - margin - colUnitPrice + 8, 12, 2, 2, "FD");
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.setTextColor(30, 30, 30);
-    doc.text(l.amount, colUnitPrice, y + 2);
-    doc.text(
-      amountWithStatus,
-      colTotal - 3,
-      y + 2,
-      { align: "right" },
-    );
-  }
 
   // --- Footer ---
   const footerY = doc.internal.pageSize.getHeight() - 20;
