@@ -139,7 +139,7 @@ const en: Record<TranslationKey, string> = {
   "public.detectionSource": "Detection source",
   "public.detectedVia": "Detected via: {source}",
   "public.requestDeletionTitle": "Request account deletion",
-  "public.requestDeletionWarning": "Warning: if deletion becomes final after 7 days, any remaining balance is lost.",
+  "public.requestDeletionWarning": "After 7 days, deletion is irreversible and any remaining balance is irreversibly lost.",
   "public.requestDeletion": "Request deletion",
   "public.deletionPendingTitle": "Deletion requested",
   "public.deletionPendingDesc": "Your account is hidden and excluded from calculations. You can restore it within 7 days.",

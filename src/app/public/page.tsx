@@ -4,6 +4,16 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -22,6 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -32,8 +43,6 @@ import {
   Sun,
   Wallet,
   ReceiptText,
-  User,
-  Euro,
 } from "lucide-react";
 import { toast } from "sonner";
 import { generateInvoicePDF } from "@/lib/generate-invoice";
@@ -76,6 +85,8 @@ export default function PublicPage() {
 
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [deletionMenuOpen, setDeletionMenuOpen] = useState(false);
+  const [deletionConfirmOpen, setDeletionConfirmOpen] = useState(false);
   const [account, setAccount] = useState<PublicAccount | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
@@ -389,19 +400,63 @@ export default function PublicPage() {
                 </div>
 
                 {account.account_state === "active" ? (
-                  <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
-                    <p className="font-medium">
-                      {t("public.requestDeletionTitle")}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {t("public.requestDeletionWarning")}
-                    </p>
-                    <Button
-                      variant="destructive"
-                      onClick={() => handleAccountDeletionAction("request")}
+                  <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
+                    <button
+                      type="button"
+                      className="w-full flex items-center justify-between text-left"
+                      onClick={() => setDeletionMenuOpen((prev) => !prev)}
                     >
-                      {t("public.requestDeletion")}
-                    </Button>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {t("public.requestDeletionTitle")}
+                      </p>
+                      <ChevronDown
+                        className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${deletionMenuOpen ? "rotate-180" : "rotate-0"}`}
+                      />
+                    </button>
+                    {deletionMenuOpen ? (
+                      <>
+                        <p className="text-xs text-muted-foreground">
+                          {t("public.requestDeletionWarning")}
+                        </p>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="mt-1 w-fit text-xs"
+                          onClick={() => setDeletionConfirmOpen(true)}
+                        >
+                          {t("public.requestDeletion")}
+                        </Button>
+
+                        <AlertDialog
+                          open={deletionConfirmOpen}
+                          onOpenChange={setDeletionConfirmOpen}
+                        >
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                {t("public.requestDeletionTitle")}
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                {t("public.requestDeletionWarning")}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>
+                                {t("common.cancel")}
+                              </AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                onClick={() =>
+                                  handleAccountDeletionAction("request")
+                                }
+                              >
+                                {t("common.confirm")}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </>
+                    ) : null}
                   </div>
                 ) : null}
               </div>

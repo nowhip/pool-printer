@@ -137,7 +137,7 @@ const de = {
   "public.detectionSource": "Erkennungsquelle",
   "public.detectedVia": "Erkannt über: {source}",
   "public.requestDeletionTitle": "Accountlöschung beantragen",
-  "public.requestDeletionWarning": "Achtung: Wenn die Löschung nach 7 Tagen final wird, geht verbleibendes Guthaben verloren.",
+  "public.requestDeletionWarning": "Die Löschung kann bis zu 7 Tage rückgängig gemacht werden, danach ist sie unwiderruflich und das Guthaben unwiderruflich verloren.",
   "public.requestDeletion": "Löschung beantragen",
   "public.deletionPendingTitle": "Löschung beantragt",
   "public.deletionPendingDesc": "Ihr Account ist ausgeblendet und wird nicht mehr für Berechnungen verwendet. Sie können ihn innerhalb von 7 Tagen wiederherstellen.",
