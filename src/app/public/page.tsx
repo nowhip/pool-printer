@@ -4,7 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -20,7 +26,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronLeft, ChevronRight, Download, Globe, Monitor, Moon, RefreshCw, Sun } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Globe,
+  Monitor,
+  Moon,
+  RefreshCw,
+  Sun,
+} from "lucide-react";
 import { toast } from "sonner";
 import { generateInvoicePDF } from "@/lib/generate-invoice";
 
@@ -28,9 +43,11 @@ interface PublicAccount {
   resolved: boolean;
   exists: boolean;
   userId?: string;
+  source?: string;
   balance?: number;
   is_free_account?: number;
   error?: string;
+  hint?: string;
 }
 
 interface Transaction {
@@ -67,22 +84,27 @@ export default function PublicPage() {
     totalPages: 0,
   });
 
-  const fetchTransactions = useCallback(async (page = 1) => {
-    const params = new URLSearchParams({
-      page: String(page),
-      limit: String(pagination.limit),
-    });
+  const fetchTransactions = useCallback(
+    async (page = 1) => {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(pagination.limit),
+      });
 
-    const res = await fetch(`/api/public/transactions?${params.toString()}`);
-    const data = await res.json();
+      const res = await fetch(`/api/public/transactions?${params.toString()}`);
+      const data = await res.json();
 
-    if (!res.ok) {
-      throw new Error(data.error || "Failed to fetch transactions");
-    }
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to fetch transactions");
+      }
 
-    setTransactions(data.transactions || []);
-    setPagination(data.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 });
-  }, [pagination.limit]);
+      setTransactions(data.transactions || []);
+      setPagination(
+        data.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 },
+      );
+    },
+    [pagination.limit],
+  );
 
   const fetchAccount = useCallback(async () => {
     setLoading(true);
@@ -248,14 +270,30 @@ export default function PublicPage() {
               <p className="text-muted-foreground">{t("common.loading")}</p>
             ) : !account?.resolved ? (
               <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-                <p className="font-medium">{t("public.userResolveFailedTitle")}</p>
-                <p className="text-sm text-muted-foreground">{t("public.userResolveFailedDesc")}</p>
+                <p className="font-medium">
+                  {t("public.userResolveFailedTitle")}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {t("public.userResolveFailedDesc")}
+                </p>
+                {account?.hint && (
+                  <p className="text-xs text-muted-foreground">
+                    {account.hint}
+                  </p>
+                )}
               </div>
             ) : !account.exists ? (
               <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
                 <p className="font-medium">{t("public.accountMissingTitle")}</p>
                 <p className="text-sm text-muted-foreground">
-                  {t("public.accountMissingDesc", { userId: account.userId || "" })}
+                  {t("public.accountMissingDesc", {
+                    userId: account.userId || "",
+                  })}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {t("public.detectedVia", {
+                    source: account.source || "unknown",
+                  })}
                 </p>
                 <Button onClick={handleCreateAccount} disabled={creating}>
                   {creating ? t("common.loading") : t("public.createAccount")}
@@ -264,12 +302,28 @@ export default function PublicPage() {
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-md border p-3">
-                  <p className="text-sm text-muted-foreground">{t("users.userId")}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {t("users.userId")}
+                  </p>
                   <p className="font-medium">{account.userId}</p>
                 </div>
                 <div className="rounded-md border p-3">
-                  <p className="text-sm text-muted-foreground">{t("common.balance")}</p>
-                  <p className="font-medium">{formatCurrency(account.balance || 0)}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {t("common.balance")}
+                  </p>
+                  <p className="font-medium">
+                    {formatCurrency(account.balance || 0)}
+                  </p>
+                </div>
+                <div className="rounded-md border p-3 sm:col-span-2">
+                  <p className="text-sm text-muted-foreground">
+                    {t("public.detectionSource")}
+                  </p>
+                  <p className="font-medium">
+                    {t("public.detectedVia", {
+                      source: account.source || "unknown",
+                    })}
+                  </p>
                 </div>
               </div>
             )}
@@ -280,7 +334,9 @@ export default function PublicPage() {
           <Card>
             <CardHeader>
               <CardTitle>{t("public.transactionsTitle")}</CardTitle>
-              <CardDescription>{t("public.transactionsDescription")}</CardDescription>
+              <CardDescription>
+                {t("public.transactionsDescription")}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="border rounded-lg">
@@ -293,28 +349,41 @@ export default function PublicPage() {
                       <TableHead>{t("common.pages")}</TableHead>
                       <TableHead>{t("common.status")}</TableHead>
                       <TableHead>{t("common.date")}</TableHead>
-                      <TableHead className="w-[70px]">{t("common.actions")}</TableHead>
+                      <TableHead className="w-[70px]">
+                        {t("common.actions")}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {transactions.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                        <TableCell
+                          colSpan={7}
+                          className="py-8 text-center text-muted-foreground"
+                        >
                           {t("jobs.noTransactions")}
                         </TableCell>
                       </TableRow>
                     ) : (
                       transactions.map((tx) => (
                         <TableRow key={tx.id}>
-                          <TableCell className="font-mono text-xs">#{tx.id}</TableCell>
+                          <TableCell className="font-mono text-xs">
+                            #{tx.id}
+                          </TableCell>
                           <TableCell>{typeLabel(tx.type)}</TableCell>
-                          <TableCell className={tx.amount >= 0 ? "text-green-600" : "text-red-600"}>
+                          <TableCell
+                            className={
+                              tx.amount >= 0 ? "text-green-600" : "text-red-600"
+                            }
+                          >
                             {tx.amount >= 0 ? "+" : ""}
                             {formatCurrency(tx.amount)}
                           </TableCell>
                           <TableCell>{tx.pages ?? 1}</TableCell>
                           <TableCell>
-                            <Badge variant={statusColor(tx.status)}>{statusLabel(tx.status)}</Badge>
+                            <Badge variant={statusColor(tx.status)}>
+                              {statusLabel(tx.status)}
+                            </Badge>
                           </TableCell>
                           <TableCell>{formatDateTime(tx.timestamp)}</TableCell>
                           <TableCell>

@@ -1,20 +1,23 @@
 import { NextResponse } from "next/server";
 import getDb from "@/lib/db";
-import { resolveWindowsUserIdFromHeaders } from "@/lib/windows-user";
+import { resolveWindowsUser } from "@/lib/windows-user";
 
 export async function GET(request: Request) {
   try {
-    const userId = resolveWindowsUserIdFromHeaders(request.headers);
+    const resolved = resolveWindowsUser(request.headers);
 
-    if (!userId) {
+    if (!resolved) {
       return NextResponse.json(
         {
           resolved: false,
-          error: "Windows username could not be resolved from request headers",
+          error: "Windows username could not be resolved",
+          hint: "Provide one of the expected user headers via proxy/IIS, or access via localhost so server fallback can be used.",
         },
         { status: 400 },
       );
     }
+
+    const userId = resolved.userId;
 
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
@@ -39,6 +42,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       resolved: true,
+      source: resolved.source,
       userId,
       transactions,
       pagination: {

@@ -127,6 +127,8 @@ const en: Record<TranslationKey, string> = {
   "public.accountCreated": "Account created successfully",
   "public.accountCreateFailed": "Failed to create account",
   "public.loadFailed": "Failed to load account data",
+  "public.detectionSource": "Detection source",
+  "public.detectedVia": "Detected via: {source}",
 
   // Settings
   "settings.title": "Settings",

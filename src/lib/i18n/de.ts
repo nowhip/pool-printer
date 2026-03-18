@@ -125,6 +125,8 @@ const de = {
   "public.accountCreated": "Konto erfolgreich angelegt",
   "public.accountCreateFailed": "Konto konnte nicht angelegt werden",
   "public.loadFailed": "Kontodaten konnten nicht geladen werden",
+  "public.detectionSource": "Erkennungsquelle",
+  "public.detectedVia": "Erkannt über: {source}",
 
   // Settings
   "settings.title": "Einstellungen",
