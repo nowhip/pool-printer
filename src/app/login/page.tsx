@@ -22,7 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Printer, Sun, Moon, Monitor, Globe, Info } from "lucide-react";
+import { Printer, Sun, Moon, Monitor, Globe } from "lucide-react";
 import Image from "next/image";
 
 export default function LoginPage() {
@@ -163,16 +163,6 @@ export default function LoginPage() {
               {loading ? <Skeleton className="h-4 w-24" /> : t("login.signIn")}
             </Button>
           </form>
-          <div className="mt-4 flex items-start gap-2 rounded-md bg-muted p-3 text-xs text-muted-foreground">
-            <Info className="h-4 w-4 shrink-0 mt-0.5" />
-            <span>
-              {t("login.defaultCredentialsTitle")}
-              <br />
-              {t("login.defaultCredentialsUser")}
-              <br />
-              {t("login.defaultCredentialsPass")}
-            </span>
-          </div>
         </CardContent>
       </Card>
     </div>
