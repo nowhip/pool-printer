@@ -43,7 +43,6 @@ interface PublicAccount {
   resolved: boolean;
   exists: boolean;
   userId?: string;
-  source?: string;
   balance?: number;
   is_free_account?: number;
   error?: string;
@@ -290,11 +289,6 @@ export default function PublicPage() {
                     userId: account.userId || "",
                   })}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  {t("public.detectedVia", {
-                    source: account.source || "unknown",
-                  })}
-                </p>
                 <Button onClick={handleCreateAccount} disabled={creating}>
                   {creating ? t("common.loading") : t("public.createAccount")}
                 </Button>
@@ -315,16 +309,6 @@ export default function PublicPage() {
                     {formatCurrency(account.balance || 0)}
                   </p>
                 </div>
-                <div className="rounded-md border p-3 sm:col-span-2">
-                  <p className="text-sm text-muted-foreground">
-                    {t("public.detectionSource")}
-                  </p>
-                  <p className="font-medium">
-                    {t("public.detectedVia", {
-                      source: account.source || "unknown",
-                    })}
-                  </p>
-                </div>
               </div>
             )}
           </CardContent>
@@ -343,7 +327,6 @@ export default function PublicPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{t("common.id")}</TableHead>
                       <TableHead>{t("common.type")}</TableHead>
                       <TableHead>{t("common.amount")}</TableHead>
                       <TableHead>{t("common.pages")}</TableHead>
@@ -358,7 +341,7 @@ export default function PublicPage() {
                     {transactions.length === 0 ? (
                       <TableRow>
                         <TableCell
-                          colSpan={7}
+                          colSpan={6}
                           className="py-8 text-center text-muted-foreground"
                         >
                           {t("jobs.noTransactions")}
@@ -367,9 +350,6 @@ export default function PublicPage() {
                     ) : (
                       transactions.map((tx) => (
                         <TableRow key={tx.id}>
-                          <TableCell className="font-mono text-xs">
-                            #{tx.id}
-                          </TableCell>
                           <TableCell>{typeLabel(tx.type)}</TableCell>
                           <TableCell
                             className={
@@ -379,7 +359,11 @@ export default function PublicPage() {
                             {tx.amount >= 0 ? "+" : ""}
                             {formatCurrency(tx.amount)}
                           </TableCell>
-                          <TableCell>{tx.pages ?? 1}</TableCell>
+                          <TableCell>
+                            {tx.type === "print_bw" || tx.type === "print_color"
+                              ? (tx.pages ?? 1)
+                              : "-"}
+                          </TableCell>
                           <TableCell>
                             <Badge variant={statusColor(tx.status)}>
                               {statusLabel(tx.status)}
