@@ -39,11 +39,13 @@ import {
   Globe,
   Monitor,
   Moon,
+  Printer,
   RefreshCw,
   Sun,
   Wallet,
   ReceiptText,
 } from "lucide-react";
+import Image from "next/image";
 import { toast } from "sonner";
 import { generateInvoicePDF } from "@/lib/generate-invoice";
 
@@ -87,6 +89,7 @@ export default function PublicPage() {
   const [creating, setCreating] = useState(false);
   const [deletionMenuOpen, setDeletionMenuOpen] = useState(false);
   const [deletionConfirmOpen, setDeletionConfirmOpen] = useState(false);
+  const [logoError, setLogoError] = useState(false);
   const [account, setAccount] = useState<PublicAccount | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
@@ -240,9 +243,26 @@ export default function PublicPage() {
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-6xl space-y-6 p-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">{t("public.title")}</h1>
-            <p className="text-muted-foreground">{t("public.subtitle")}</p>
+          <div className="flex items-center gap-3">
+            {logoError ? (
+              <Printer className="h-10 w-10 text-primary" />
+            ) : (
+              <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-[oklch(0.9846_0.0017_247.8389)] p-1.5">
+                <Image
+                  src="/logo.svg"
+                  alt="Logo"
+                  width={48}
+                  height={48}
+                  className="h-full w-full object-contain"
+                  onError={() => setLogoError(true)}
+                />
+              </div>
+            )}
+            <div>
+              <p className="text-lg font-bold leading-tight">{t("app.name")}</p>
+              <h1 className="text-3xl font-bold">{t("public.title")}</h1>
+              <p className="text-muted-foreground">{t("public.subtitle")}</p>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
