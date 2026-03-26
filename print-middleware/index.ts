@@ -156,7 +156,7 @@ async function resumeJob(printerName: string, jobId: number): Promise<void> {
 
 async function unpausePrinter(printerName: string): Promise<void> {
   try {
-    await runPS(`(Get-WmiObject -Query "SELECT * FROM Win32_Printer WHERE Name='${printerName}'").Resume() | Out-Null`);
+    await runPS(`Get-CimInstance -Class Win32_Printer | Where-Object { $_.Name -eq "${printerName}" } | Invoke-CimMethod -MethodName Resume`);
   } catch (error) {
     console.error(`[PRINTER] Failed to unpause ${printerName}:`, error instanceof Error ? error.message.split('\n')[0] : error);
   }
@@ -164,7 +164,7 @@ async function unpausePrinter(printerName: string): Promise<void> {
 
 async function pausePrinter(printerName: string): Promise<void> {
   try {
-    await runPS(`(Get-WmiObject -Query "SELECT * FROM Win32_Printer WHERE Name='${printerName}'").Pause() | Out-Null`);
+    await runPS(`Get-CimInstance -Class Win32_Printer | Where-Object { $_.Name -eq "${printerName}" } | Invoke-CimMethod -MethodName Pause`);
   } catch (error) {
     console.error(`[PRINTER] Failed to pause ${printerName}:`, error instanceof Error ? error.message.split('\n')[0] : error);
   }
