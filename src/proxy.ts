@@ -52,7 +52,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Public self-service page and APIs (no supervisor login)
-  if (pathname === "/public" || pathname.startsWith("/api/public")) {
+  if (pathname === "/public" || pathname === "/api/user" || pathname.startsWith("/api/public")) {
     return NextResponse.next();
   }
 

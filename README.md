@@ -30,17 +30,25 @@ Kernfunktionen:
 
 Das Projekt läuft bewusst als **Split-Architektur**:
 
-1. **Next.js App**
+1. **IIS Reverse Proxy (Frontend-Gateway)**
+
+- Windows Authentication aktiv, Anonymous deaktiviert
+- Leitet Requests an Next.js (`http://localhost:3000`) weiter
+- Übergibt den authentifizierten Benutzer per Header (`X-User` / `REMOTE_USER`)
+
+2. **Next.js App**
    - UI + API + SQLite Zugriff
    - Standard-Port lokal: `3000`
 
-2. **Next.js Proxy (`src/proxy.ts`)**
+3. **Next.js Proxy (`src/proxy.ts`)**
    - Schützt Dashboard/API per Session
    - Erlaubt `/public` und `/api/public/*` ohne Supervisor-Login
-   - Schützt `/api/print/*` zusätzlich mit `Authorization: Bearer API_KEY`
-   - Optional LAN-Einschränkung (`LAN_ONLY`)
 
-3. **Print Middleware (`print-middleware/index.ts`)**
+- Erlaubt `/api/user` ohne Supervisor-Login
+- Schützt `/api/print/*` zusätzlich mit `Authorization: Bearer API_KEY`
+- Optional LAN-Einschränkung (`LAN_ONLY`)
+
+4. **Print Middleware (`print-middleware/index.ts`)**
    - Pollt den Windows Spooler
    - Reserviert Druckkosten vor dem Druck (`/api/print/reserve`)
    - Bestätigt nach Erfolg (`/api/print/confirm`) oder storniert/refundet (`/api/print/cancel`)
@@ -50,6 +58,8 @@ Das Projekt läuft bewusst als **Split-Architektur**:
 - Windows (für Print-Spooler-Steuerung)
 - Node.js 20+
 - npm
+- IIS mit URL Rewrite + ARR (Application Request Routing)
+- IIS Windows Authentication Feature
 - Zugriff auf Ziel-Druckerwarteschlangen
 - Rechte, um PrintJobs zu lesen/fortzusetzen/zu pausieren
 
@@ -170,22 +180,97 @@ npm run start
 npx tsx print-middleware/index.ts
 ```
 
-### 8) PM2 Autostart
+### 8) IIS Reverse Proxy + Windows Authentication Setup
 
-#### 8.1 Prozesse in PM2 anlegen
+Ziel:
+
+- IIS ist der öffentliche Einstiegspunkt (Port `80`/`443`)
+- Next.js läuft intern auf `http://localhost:3000`
+- IIS authentifiziert per Windows Authentication
+- IIS übergibt den Benutzer an Next.js über Header
+
+#### 8.1 IIS Features/Module prüfen
+
+- Windows Feature: `Web-Server (IIS)`
+- IIS Feature: `Windows Authentication`
+- IIS Modul: `URL Rewrite`
+- IIS Modul: `Application Request Routing (ARR)`
+
+#### 8.2 Next.js intern starten
+
+```bash
+npm run build
+npm run start
+```
+
+#### 8.3 IIS Site konfigurieren
+
+1. In IIS Manager die Site öffnen
+2. `Authentication`:
+   - `Windows Authentication`: **Enabled**
+   - `Anonymous Authentication`: **Disabled**
+3. ARR Proxy aktivieren:
+   - Server-Level -> `Application Request Routing Cache` -> `Server Proxy Settings`
+   - `Enable proxy` aktivieren
+4. URL Rewrite Inbound Rule erstellen:
+   - Pattern: `(.*)`
+   - Rewrite URL: `http://localhost:3000/{R:1}`
+
+#### 8.4 Benutzerheader an Next.js übergeben
+
+Entweder per Rewrite-Rule Server Variables oder über `web.config`:
+
+```xml
+<configuration>
+  <system.webServer>
+    <rewrite>
+      <allowedServerVariables>
+        <add name="HTTP_X_USER" />
+        <add name="HTTP_REMOTE_USER" />
+      </allowedServerVariables>
+      <rules>
+        <rule name="ReverseProxyInbound" stopProcessing="true">
+          <match url="(.*)" />
+          <action type="Rewrite" url="http://localhost:3000/{R:1}" />
+          <serverVariables>
+            <set name="HTTP_X_USER" value="{AUTH_USER}" />
+            <set name="HTTP_REMOTE_USER" value="{AUTH_USER}" />
+          </serverVariables>
+        </rule>
+      </rules>
+    </rewrite>
+  </system.webServer>
+</configuration>
+```
+
+Hinweis:
+
+- Die App normalisiert Benutzernamen immer serverseitig nach lowercase.
+- Beispiel: `DOMAIN\\Max.Mustermann` -> `max.mustermann`.
+- Erkennung erfolgt ausschließlich serverseitig über Header (kein clientseitiges JS-Login).
+
+#### 8.5 Funktionstest
+
+- `GET /api/user` muss liefern: `{ "user": "maxmustermann" }`
+- `GET /public` muss das Konto des aktuell angemeldeten Windows-Users laden
+- Wenn kein Header ankommt: `401` mit Hinweis auf IIS-Konfiguration
+
+### 9) PM2 Autostart
+
+#### 9.1 Prozesse in PM2 anlegen
 
 ```bash
 pm2 start npm --name pool-app -- run start
 pm2 start npx --name pool-print -- tsx print-middleware/index.ts
 ```
 
-#### 8.2 Prozessliste speichern
+#### 9.2 Prozessliste speichern
 
 ```bash
 pm2 save
 ```
 
-#### 8.3 Autostart aktivieren (Windows)
+#### 9.3 Autostart aktivieren (Windows)
 
 - PM2 selbst verwaltet Prozesse, aber Boot-Autostart wird in Windows typischerweise per Task Scheduler/Service ergänzt.
 - Praxis: PM2 beim Systemstart ausführen und danach `pm2 resurrect` aufrufen.
@@ -196,9 +281,9 @@ Beispiel (manuell/testweise):
 pm2 resurrect
 ```
 
-### 9) Betriebslogik (End-to-End)
+### 10) Betriebslogik (End-to-End)
 
-#### 9.1 Supervisor-Bereich
+#### 10.1 Supervisor-Bereich
 
 - Login über `/login`
 - Dashboard zeigt Kennzahlen inkl. manueller Aufträge/Umsatz
@@ -207,14 +292,14 @@ pm2 resurrect
   - `Löschanträge`
 - Nutzer mit `deletion_requested` sind aus normalen Abläufen ausgeklinkt
 
-#### 9.2 Self-Service (`/public`)
+#### 10.2 Self-Service (`/public`)
 
-- User gibt seine Benutzer-ID direkt ein
+- Windows-Benutzer wird automatisch über IIS-Header erkannt
 - Falls kein Konto existiert: Konto kann angelegt werden
 - Kontostand + Transaktionen sichtbar
 - Löschantrag kann vom User selbst gestellt und innerhalb von 7 Tagen widerrufen werden
 
-#### 9.3 Druckfluss
+#### 10.3 Druckfluss
 
 **Normal (Erfolgreich):**
 
@@ -242,7 +327,7 @@ pm2 resurrect
   - Guthaben wird dem Nutzer rückgängig gemacht
 - Bei kritischem Fehler nach Druckbeginn: `/api/print/confirm` wird nicht aufgerufen, stattdessen Refund
 
-#### 9.5 Fehlerszenarien und Systemverhalten
+#### 10.4 Fehlerszenarien und Systemverhalten
 
 | Szenario                       | Verhalten                                                          | Folge                                        |
 | ------------------------------ | ------------------------------------------------------------------ | -------------------------------------------- |
@@ -254,7 +339,7 @@ pm2 resurrect
 | Job hängt >5 Min               | Timeout, Job wird gelöscht, Guthaben refundet                      | Transaktion `refunded`                       |
 | Printer offline                | Job bleibt im Spooler, wird nach Fehlerbereinigung erneut versucht | Middleware loggt Fehler                      |
 
-#### 9.5 Löschantrag (7 Tage)
+#### 10.5 Löschantrag (7 Tage)
 
 - Kein sofortiges Hard-Delete mehr
 - Statuswechsel auf `deletion_requested`
@@ -283,10 +368,11 @@ Die Print Middleware gibt ausführliches Logging aus. Bei der Ausführung sehen 
 
 Wichtiger Hinweis: **Abgelehnte Aufträge werden nicht in Logs des Systems gespeichert** (nur in der Console der Middleware). Dies ist beabsichtigt, um die Datenbankgröße zu reduzieren.
 
-### 11) API-Übersicht (wichtigste Routen)
+### 12) API-Übersicht (wichtigste Routen)
 
 Public:
 
+- `GET /api/user`
 - `GET /api/public/me`
 - `POST /api/public/create-account`
 - `GET /api/public/transactions`
@@ -337,16 +423,24 @@ Main capabilities:
 
 The runtime is intentionally split into separate components:
 
-1. **Next.js app**
+1. **IIS Reverse Proxy (front gateway)**
+
+- Windows Authentication enabled, Anonymous disabled
+- Forwards requests to Next.js (`http://localhost:3000`)
+- Passes authenticated user via headers (`X-User` / `REMOTE_USER`)
+
+2. **Next.js app**
    - UI + API + SQLite access
 
-2. **Next.js proxy (`src/proxy.ts`)**
+3. **Next.js proxy (`src/proxy.ts`)**
    - Session protection for dashboard/internal APIs
    - Public passthrough for `/public` and `/api/public/*`
-   - API key protection for `/api/print/*`
-   - Optional LAN IP restriction (`LAN_ONLY`)
 
-3. **Print Middleware (`print-middleware/index.ts`)**
+- Allows `/api/user` without supervisor login
+- API key protection for `/api/print/*`
+- Optional LAN IP restriction (`LAN_ONLY`)
+
+4. **Print Middleware (`print-middleware/index.ts`)**
    - Polls Windows Print Spooler every 3 seconds (configurable)
    - Reserves print costs before printing (`/api/print/reserve`)
    - Confirms after success (`/api/print/confirm`) or cancels/refunds (`/api/print/cancel`)
@@ -356,6 +450,8 @@ The runtime is intentionally split into separate components:
 - Windows (for print spooler control)
 - Node.js 20+
 - npm
+- IIS with URL Rewrite + ARR (Application Request Routing)
+- IIS Windows Authentication feature
 - Access to target print queues
 - Rights to read/resume/pause PrintJobs
 
@@ -476,22 +572,97 @@ npm run start
 npx tsx print-middleware/index.ts
 ```
 
-### 8) PM2 Autostart
+### 8) IIS Reverse Proxy + Windows Authentication Setup
 
-#### 8.1 Create processes in PM2
+Goal:
+
+- IIS is the public entrypoint (port `80`/`443`)
+- Next.js runs internally on `http://localhost:3000`
+- IIS authenticates users via Windows Authentication
+- IIS forwards the authenticated user to Next.js via request headers
+
+#### 8.1 Verify IIS features/modules
+
+- Windows feature: `Web Server (IIS)`
+- IIS feature: `Windows Authentication`
+- IIS module: `URL Rewrite`
+- IIS module: `Application Request Routing (ARR)`
+
+#### 8.2 Start Next.js internally
+
+```bash
+npm run build
+npm run start
+```
+
+#### 8.3 Configure IIS site
+
+1. Open your site in IIS Manager
+2. `Authentication`:
+   - `Windows Authentication`: **Enabled**
+   - `Anonymous Authentication`: **Disabled**
+3. Enable ARR proxy:
+   - Server level -> `Application Request Routing Cache` -> `Server Proxy Settings`
+   - Enable `proxy`
+4. Add URL Rewrite inbound rule:
+   - Pattern: `(.*)`
+   - Rewrite URL: `http://localhost:3000/{R:1}`
+
+#### 8.4 Forward user headers to Next.js
+
+Either set server variables in Rewrite UI or use `web.config`:
+
+```xml
+<configuration>
+  <system.webServer>
+    <rewrite>
+      <allowedServerVariables>
+        <add name="HTTP_X_USER" />
+        <add name="HTTP_REMOTE_USER" />
+      </allowedServerVariables>
+      <rules>
+        <rule name="ReverseProxyInbound" stopProcessing="true">
+          <match url="(.*)" />
+          <action type="Rewrite" url="http://localhost:3000/{R:1}" />
+          <serverVariables>
+            <set name="HTTP_X_USER" value="{AUTH_USER}" />
+            <set name="HTTP_REMOTE_USER" value="{AUTH_USER}" />
+          </serverVariables>
+        </rule>
+      </rules>
+    </rewrite>
+  </system.webServer>
+</configuration>
+```
+
+Note:
+
+- The app always normalizes usernames to lowercase on the server.
+- Example: `DOMAIN\\Max.Mustermann` -> `max.mustermann`.
+- Detection is server-side only (no client-side JavaScript login lookup).
+
+#### 8.5 Verify setup
+
+- `GET /api/user` should return `{ "user": "maxmustermann" }`
+- `GET /public` should load the account for the currently authenticated Windows user
+- If no header is present, APIs return `401` with IIS configuration hint
+
+### 9) PM2 Autostart
+
+#### 9.1 Create processes in PM2
 
 ```bash
 pm2 start npm --name pool-app -- run start
 pm2 start npx --name pool-print -- tsx print-middleware/index.ts
 ```
 
-#### 8.2 Save process list
+#### 9.2 Save process list
 
 ```bash
 pm2 save
 ```
 
-#### 8.3 Enable autostart (Windows)
+#### 9.3 Enable autostart (Windows)
 
 - PM2 itself manages processes, but boot autostart is typically implemented via Windows Task Scheduler/Service
 - Practice: Run PM2 at system startup and then call `pm2 resurrect`
@@ -502,9 +673,9 @@ Example (manual/testing):
 pm2 resurrect
 ```
 
-### 9) Operational Logic (End-to-End)
+### 10) Operational Logic (End-to-End)
 
-#### 9.1 Supervisor Area
+#### 10.1 Supervisor Area
 
 - Login via `/login`
 - Dashboard shows statistics including manual transactions/revenue
@@ -513,14 +684,14 @@ pm2 resurrect
   - `Deletion Requests`
 - Users with `deletion_requested` are excluded from normal operations
 
-#### 9.2 Self-Service (`/public`)
+#### 10.2 Self-Service (`/public`)
 
-- User enters their user ID directly
+- Windows user is detected automatically via IIS-forwarded headers
 - If account doesn't exist: can be created
 - Account balance + transactions visible
 - Deletion request can be submitted by user and reverted within 7 days
 
-#### 9.3 Print Flow
+#### 10.3 Print Flow
 
 **Normal (Successful):**
 
@@ -548,7 +719,7 @@ pm2 resurrect
   - User balance is refunded
 - Critical error after print start: `/api/print/confirm` not called, refund instead
 
-#### 9.4 Error Scenarios and System Behavior
+#### 10.4 Error Scenarios and System Behavior
 
 | Scenario                      | Behavior                                          | Consequence                            |
 | ----------------------------- | ------------------------------------------------- | -------------------------------------- |
@@ -560,7 +731,7 @@ pm2 resurrect
 | Job stuck >5 min              | Timeout, job deleted, balance refunded            | Transaction `refunded`                 |
 | Printer offline               | Job remains in spooler, retried after error clear | Middleware logs error                  |
 
-#### 9.5 Deletion Request (7 Days)
+#### 10.5 Deletion Request (7 Days)
 
 - No immediate hard delete
 - Status change to `deletion_requested`
@@ -570,7 +741,7 @@ pm2 resurrect
   - User self (`/api/public/account-deletion` with `restore=true`)
 - After expiry, user + associated transactions auto-deleted
 
-### 10) Print Middleware Logging and Debugging
+### 11) Print Middleware Logging and Debugging
 
 The print middleware outputs detailed logging. During execution you will see messages like:
 
@@ -589,10 +760,11 @@ The print middleware outputs detailed logging. During execution you will see mes
 
 Important Note: **Rejected jobs are not stored in system logs** (only in middleware console). This is intentional to reduce database size.
 
-### 11) API Overview (most important routes)
+### 12) API Overview (most important routes)
 
 Public:
 
+- `GET /api/user`
 - `GET /api/public/me`
 - `POST /api/public/create-account`
 - `GET /api/public/transactions`

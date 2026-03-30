@@ -1,20 +1,21 @@
 import { NextResponse } from "next/server";
 import getDb from "@/lib/db";
-import { normalizePublicUserId } from "@/lib/public-user";
+import { resolveWindowsUserIdFromHeaders } from "@/lib/public-user";
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const userId = normalizePublicUserId(searchParams.get("userId"));
+    const resolvedUser = resolveWindowsUserIdFromHeaders(request.headers);
+    const userId = resolvedUser.userId;
 
     if (!userId) {
       return NextResponse.json(
         {
           resolved: false,
-          error: "userId is required",
-          hint: "Provide userId as query parameter, for example: /api/public/transactions?userId=maxmustermann",
+          error: "Windows username header not found",
+          hint: "Ensure IIS forwards X-User or REMOTE_USER headers.",
         },
-        { status: 400 },
+        { status: 401 },
       );
     }
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));

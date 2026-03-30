@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
 import getDb from "@/lib/db";
-import { normalizePublicUserId } from "@/lib/public-user";
+import { resolveWindowsUserIdFromHeaders } from "@/lib/public-user";
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = normalizePublicUserId(searchParams.get("userId"));
+    const resolvedUser = resolveWindowsUserIdFromHeaders(request.headers);
+    const userId = resolvedUser.userId;
 
     if (!userId) {
+      console.warn("[PUBLIC][ME] Missing Windows username header");
       return NextResponse.json(
         {
           resolved: false,
+          exists: false,
           error: "userId is required",
-          hint: "Provide userId as query parameter, for example: /api/public/me?userId=maxmustermann",
+          hint: "No Windows username header found. Ensure IIS Windows Authentication is enabled and forwards X-User or REMOTE_USER.",
         },
-        { status: 400 },
+        { status: 401 },
       );
     }
 
@@ -46,6 +48,7 @@ export async function GET(request: Request) {
       resolved: true,
       exists: true,
       userId: user.userId,
+      source: resolvedUser.source,
       balance: user.balance,
       is_free_account: user.is_free_account,
       account_state: user.account_state,

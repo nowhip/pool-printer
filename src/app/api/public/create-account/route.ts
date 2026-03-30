@@ -1,19 +1,19 @@
 import { NextResponse } from "next/server";
 import getDb from "@/lib/db";
-import { normalizePublicUserId } from "@/lib/public-user";
+import { resolveWindowsUserIdFromHeaders } from "@/lib/public-user";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json().catch(() => ({}));
-    const userId = normalizePublicUserId(body?.userId);
+    const resolvedUser = resolveWindowsUserIdFromHeaders(request.headers);
+    const userId = resolvedUser.userId;
 
     if (!userId) {
       return NextResponse.json(
         {
-          error: "userId is required",
-          hint: "Provide userId in JSON body, for example: { \"userId\": \"maxmustermann\" }",
+          error: "Windows username header not found",
+          hint: "Ensure IIS forwards X-User or REMOTE_USER headers.",
         },
-        { status: 400 },
+        { status: 401 },
       );
     }
 
