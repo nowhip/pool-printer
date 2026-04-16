@@ -177,16 +177,29 @@ export function AppSidebar() {
   const { secondsLeft, isDisabled } = useSessionTimer();
 
   useEffect(() => {
-    try {
-      const hasTabSession =
-        sessionStorage.getItem(SUPERVISOR_TAB_SESSION_KEY) === "1";
-      if (!hasTabSession) {
+    const checkTabSession = () => {
+      try {
+        const hasTabSession =
+          sessionStorage.getItem(SUPERVISOR_TAB_SESSION_KEY) === "1";
+        if (!hasTabSession) {
+          signOut({ callbackUrl: `${window.location.origin}/login` });
+        }
+      } catch {
         signOut({ callbackUrl: `${window.location.origin}/login` });
-        return;
       }
-    } catch {
-      signOut({ callbackUrl: `${window.location.origin}/login` });
-    }
+    };
+
+    // Check on initial load
+    checkTabSession();
+
+    // Check when tab regains focus or is restored
+    window.addEventListener("focus", checkTabSession);
+    window.addEventListener("pageshow", checkTabSession);
+
+    return () => {
+      window.removeEventListener("focus", checkTabSession);
+      window.removeEventListener("pageshow", checkTabSession);
+    };
   }, []);
 
   const handleSupervisorSignOut = useCallback(() => {
