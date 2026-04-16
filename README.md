@@ -215,7 +215,7 @@ Danach:
 
 Ziel:
 
-- IIS ist der öffentliche Einstiegspunkt (Port `80`/`443`)
+- IIS ist der Einstiegspunkt auf Port `3001` (lokales Hosting)
 - Next.js läuft intern auf `http://localhost:3000`
 - IIS authentifiziert per Windows Authentication
 - IIS übergibt den Benutzer an Next.js über Header
@@ -236,14 +236,30 @@ npm run start
 
 #### 8.3 IIS Site konfigurieren
 
-1. In IIS Manager die Site öffnen
-2. `Authentication`:
+1. In IIS Manager eine neue Site erstellen:
+
+- `Binding Type`: `http`
+- `Port`: `3001`
+- `IP address`: `All Unassigned`
+- `Host name`: leer lassen
+- `Physical path`: Projekt-Root (dieser Ordner)
+
+2. AppPool-Rechte auf den Projektordner setzen:
+
+- Windows Explorer -> Projektordner -> Eigenschaften -> Sicherheit
+- Benutzer hinzufügen: `IIS AppPool\<DEIN_APPPOOL_NAME>`
+- Mindestens `Lesen/Ausführen` erlauben
+
+3. In IIS Site `Authentication`:
    - `Windows Authentication`: **Enabled**
    - `Anonymous Authentication`: **Disabled**
-3. ARR Proxy aktivieren:
+4. ARR Proxy aktivieren und Disk Cache deaktivieren:
    - Server-Level -> `Application Request Routing Cache` -> `Server Proxy Settings`
    - `Enable proxy` aktivieren
-4. URL Rewrite Inbound Rule erstellen:
+
+- `Enable disk cache` deaktivieren
+
+5. URL Rewrite Inbound Rule erstellen:
    - Pattern: `(.*)`
    - Rewrite URL: `http://localhost:3000/{R:1}`
 
@@ -643,7 +659,7 @@ After installation:
 
 Goal:
 
-- IIS is the public entrypoint (port `80`/`443`)
+- IIS is the entrypoint on port `3001` (local hosting)
 - Next.js runs internally on `http://localhost:3000`
 - IIS authenticates users via Windows Authentication
 - IIS forwards the authenticated user to Next.js via request headers
@@ -664,14 +680,30 @@ npm run start
 
 #### 8.3 Configure IIS site
 
-1. Open your site in IIS Manager
-2. `Authentication`:
+1. Create a new IIS site:
+
+- `Binding Type`: `http`
+- `Port`: `3001`
+- `IP address`: `All Unassigned`
+- `Host name`: leave empty
+- `Physical path`: project root folder
+
+2. Set AppPool permissions on the project folder:
+
+- Windows Explorer -> project folder -> Properties -> Security
+- Add principal: `IIS AppPool\<YOUR_APPPOOL_NAME>`
+- Grant at least `Read & execute`
+
+3. In IIS site `Authentication`:
    - `Windows Authentication`: **Enabled**
    - `Anonymous Authentication`: **Disabled**
-3. Enable ARR proxy:
+4. Enable ARR proxy and disable disk cache:
    - Server level -> `Application Request Routing Cache` -> `Server Proxy Settings`
    - Enable `proxy`
-4. Add URL Rewrite inbound rule:
+
+- Disable `disk cache`
+
+5. Add URL Rewrite inbound rule:
    - Pattern: `(.*)`
    - Rewrite URL: `http://localhost:3000/{R:1}`
 
