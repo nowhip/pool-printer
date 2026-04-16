@@ -48,6 +48,7 @@ import {
 import Image from "next/image";
 import { toast } from "sonner";
 import { generateInvoicePDF } from "@/lib/generate-invoice";
+import { normalizePublicUserId } from "@/lib/public-user";
 
 interface PublicAccount {
   resolved: boolean;
@@ -83,6 +84,8 @@ interface Pagination {
 export default function PublicPage() {
   const { t, locale, setLocale, formatCurrency, formatDateTime } = useI18n();
   const { setTheme, theme } = useTheme();
+  const [publicUserId, setPublicUserId] = useState<string | null>(null);
+  const [userInitialized, setUserInitialized] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -98,14 +101,41 @@ export default function PublicPage() {
     totalPages: 0,
   });
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setPublicUserId(normalizePublicUserId(params.get("user")));
+    setUserInitialized(true);
+  }, []);
+
+  const buildPublicApiUrl = useCallback(
+    (path: string, params?: Record<string, string>) => {
+      const query = new URLSearchParams({ user: publicUserId || "" });
+
+      if (params) {
+        for (const [key, value] of Object.entries(params)) {
+          query.set(key, value);
+        }
+      }
+
+      return `${path}?${query.toString()}`;
+    },
+    [publicUserId],
+  );
+
   const fetchTransactions = useCallback(
     async (page = 1) => {
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: String(pagination.limit),
-      });
+      if (!publicUserId) {
+        setTransactions([]);
+        setPagination({ page: 1, limit: 20, total: 0, totalPages: 0 });
+        return;
+      }
 
-      const res = await fetch(`/api/public/transactions?${params.toString()}`);
+      const res = await fetch(
+        buildPublicApiUrl("/api/public/transactions", {
+          page: String(page),
+          limit: String(pagination.limit),
+        }),
+      );
       const data = await res.json();
 
       if (!res.ok) {
@@ -117,13 +147,20 @@ export default function PublicPage() {
         data.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 },
       );
     },
-    [pagination.limit],
+    [buildPublicApiUrl, pagination.limit, publicUserId],
   );
 
   const fetchAccount = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/public/me`);
+      if (!publicUserId) {
+        setAccount(null);
+        setTransactions([]);
+        setPagination({ page: 1, limit: 20, total: 0, totalPages: 0 });
+        return;
+      }
+
+      const res = await fetch(buildPublicApiUrl("/api/public/me"));
       const data = (await res.json()) as PublicAccount;
       setAccount(data);
 
@@ -139,20 +176,34 @@ export default function PublicPage() {
     } finally {
       setLoading(false);
     }
-  }, [fetchTransactions, t]);
+  }, [buildPublicApiUrl, fetchTransactions, publicUserId, t]);
 
   useEffect(() => {
+    if (!userInitialized) {
+      return;
+    }
+
     fetchAccount();
-  }, [fetchAccount]);
+  }, [fetchAccount, userInitialized]);
 
   const handleLoadAccount = async () => {
+    if (!publicUserId) {
+      toast.error(t("public.userResolveFailedTitle"));
+      return;
+    }
+
     await fetchAccount();
   };
 
   const handleCreateAccount = async () => {
+    if (!publicUserId) {
+      toast.error(t("public.userResolveFailedTitle"));
+      return;
+    }
+
     setCreating(true);
     try {
-      const res = await fetch("/api/public/create-account", {
+      const res = await fetch(buildPublicApiUrl("/api/public/create-account"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
@@ -173,12 +224,20 @@ export default function PublicPage() {
   };
 
   const handleAccountDeletionAction = async (action: "request" | "restore") => {
+    if (!publicUserId) {
+      toast.error(t("public.userResolveFailedTitle"));
+      return;
+    }
+
     try {
-      const res = await fetch("/api/public/account-deletion", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
-      });
+      const res = await fetch(
+        buildPublicApiUrl("/api/public/account-deletion"),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        },
+      );
       const data = await res.json();
 
       if (!res.ok) {
@@ -500,7 +559,7 @@ export default function PublicPage() {
                       <TableHead>{t("common.pages")}</TableHead>
                       <TableHead>{t("common.status")}</TableHead>
                       <TableHead>{t("common.date")}</TableHead>
-                      <TableHead className="w-[70px]">
+                      <TableHead className="w-17.5">
                         {t("common.actions")}
                       </TableHead>
                     </TableRow>

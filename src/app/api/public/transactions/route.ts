@@ -1,22 +1,21 @@
 import { NextResponse } from "next/server";
 import getDb from "@/lib/db";
-import { resolveWindowsUserIdFromHeaders } from "@/lib/public-user";
+import { resolvePublicUserIdFromRequest } from "@/lib/public-user";
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const resolvedUser = resolveWindowsUserIdFromHeaders(request.headers);
+    const resolvedUser = resolvePublicUserIdFromRequest(request);
     const userId = resolvedUser.userId;
 
     if (!userId) {
-      return NextResponse.json(
-        {
-          resolved: false,
-          error: "Windows username header not found",
-          hint: "Ensure IIS forwards X-User or REMOTE_USER headers.",
-        },
-        { status: 401 },
-      );
+      return NextResponse.json({
+        resolved: false,
+        error: "Public user is missing",
+        hint: "Start the app via the PowerShell launcher so the current Windows username is appended as ?user=...",
+        transactions: [],
+        pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+      });
     }
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)));

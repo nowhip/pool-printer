@@ -129,7 +129,7 @@ const en: Record<TranslationKey, string> = {
   "public.transactionsTitle": "Transaction History",
   "public.transactionsDescription": "All past bookings with printable receipt.",
   "public.userResolveFailedTitle": "Windows user could not be detected",
-  "public.userResolveFailedDesc": "Please sign in through IIS Windows Authentication. Detection is server-side via headers only.",
+  "public.userResolveFailedDesc": "Start the page through the PowerShell launcher so the current Windows user is passed as ?user=...",
   "public.userIdPlaceholder": "e.g. maxmustermann",
   "public.loadAccount": "Load account",
   "public.userIdRequired": "Please enter a user ID first",

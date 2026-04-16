@@ -1,12 +1,3 @@
-const USER_HEADER_CANDIDATES = [
-  "x-user",
-  "remote_user",
-  "remote-user",
-  "x-remote-user",
-  "x-forwarded-user",
-  "x-authenticated-user",
-] as const;
-
 export function normalizePublicUserId(rawValue: unknown): string | null {
   if (typeof rawValue !== "string") return null;
 
@@ -25,16 +16,19 @@ export function normalizePublicUserId(rawValue: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
-export function resolveWindowsUserIdFromHeaders(headers: Headers): {
+export function resolvePublicUserIdFromRequest(request: Request): {
   userId: string | null;
   source: string | null;
   rawValue: string | null;
 } {
-  for (const headerName of USER_HEADER_CANDIDATES) {
-    const rawValue = headers.get(headerName);
+  const url = new URL(request.url);
+  const queryCandidates = ["user", "userId", "username"] as const;
+
+  for (const queryName of queryCandidates) {
+    const rawValue = url.searchParams.get(queryName);
     const userId = normalizePublicUserId(rawValue);
     if (userId) {
-      return { userId, source: headerName, rawValue };
+      return { userId, source: queryName, rawValue };
     }
   }
 

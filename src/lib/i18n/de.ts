@@ -127,7 +127,7 @@ const de = {
   "public.transactionsTitle": "Transaktionsverlauf",
   "public.transactionsDescription": "Alle bisherigen Buchungen mit druckbarem Beleg.",
   "public.userResolveFailedTitle": "Windows-Benutzer konnte nicht erkannt werden",
-  "public.userResolveFailedDesc": "Bitte melden Sie sich über IIS mit Windows Authentication an. Die Erkennung erfolgt nur serverseitig über Header.",
+  "public.userResolveFailedDesc": "Starten Sie die Seite über das PowerShell-Skript, damit der aktuelle Windows-Benutzer als ?user=... mitgegeben wird.",
   "public.userIdPlaceholder": "z. B. maxmustermann",
   "public.loadAccount": "Konto laden",
   "public.userIdRequired": "Bitte zuerst eine Benutzer-ID eingeben",

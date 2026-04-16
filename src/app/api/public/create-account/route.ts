@@ -1,20 +1,17 @@
 import { NextResponse } from "next/server";
 import getDb from "@/lib/db";
-import { resolveWindowsUserIdFromHeaders } from "@/lib/public-user";
+import { resolvePublicUserIdFromRequest } from "@/lib/public-user";
 
 export async function POST(request: Request) {
   try {
-    const resolvedUser = resolveWindowsUserIdFromHeaders(request.headers);
+    const resolvedUser = resolvePublicUserIdFromRequest(request);
     const userId = resolvedUser.userId;
 
     if (!userId) {
-      return NextResponse.json(
-        {
-          error: "Windows username header not found",
-          hint: "Ensure IIS forwards X-User or REMOTE_USER headers.",
-        },
-        { status: 401 },
-      );
+      return NextResponse.json({
+        error: "Public user is missing",
+        hint: "Start the app via the PowerShell launcher so the current Windows username is appended as ?user=...",
+      });
     }
 
     const db = getDb();
