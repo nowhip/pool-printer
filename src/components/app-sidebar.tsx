@@ -41,7 +41,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-
 const navItems: {
   titleKey: TranslationKey;
   href: string;
@@ -134,7 +133,7 @@ function useSessionTimer() {
       );
       setSecondsLeft(remaining);
       if (remaining <= 0) {
-        signOut({ callbackUrl: "/login" });
+        signOut({ callbackUrl: `${window.location.origin}/login` });
       }
     }, 1000);
 
@@ -278,13 +277,18 @@ export function AppSidebar() {
           <Button
             variant="ghost"
             className="flex-1 justify-start gap-2"
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={() =>
+              signOut({ callbackUrl: `${window.location.origin}/login` })
+            }
           >
             <LogOut className="h-4 w-4" />
             {t("nav.logout")}
           </Button>
           {!isDisabled && (
-            <div className="flex items-center gap-1 pr-2" title={t("nav.sessionExpires")}>
+            <div
+              className="flex items-center gap-1 pr-2"
+              title={t("nav.sessionExpires")}
+            >
               <Timer className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <span
                 className={`text-xs font-mono ${secondsLeft <= 60 ? "text-destructive font-semibold" : "text-muted-foreground"}`}
