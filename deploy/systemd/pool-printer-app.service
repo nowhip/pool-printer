@@ -1,0 +1,16 @@
+[Unit]
+Description=Pool Printer Next.js App
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/pool-printer
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/npm run start
+Restart=always
+RestartSec=3
+User=poolprinter
+Group=poolprinter
+
+[Install]
+WantedBy=multi-user.target

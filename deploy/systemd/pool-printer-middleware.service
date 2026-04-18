@@ -1,0 +1,17 @@
+[Unit]
+Description=Pool Printer Print Middleware (CUPS)
+After=network.target pool-printer-app.service
+Requires=pool-printer-app.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/pool-printer
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/npx tsx print-middleware/index.ts
+Restart=always
+RestartSec=3
+User=poolprinter
+Group=lp
+
+[Install]
+WantedBy=multi-user.target

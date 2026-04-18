@@ -14,7 +14,7 @@ It combines:
 ### 1) Was das System macht
 
 Pool Printer verwaltet Guthaben, Druckkosten und Transaktionen pro Nutzerkonto (`userId`).
-Druckaufträge werden nicht direkt im Browser ausgelöst, sondern über Windows-Druckerwarteschlangen erkannt und serverseitig abgerechnet.
+Druckaufträge werden nicht direkt im Browser ausgelöst, sondern über Ubuntu-CUPS-Warteschlangen erkannt und serverseitig abgerechnet.
 
 Kernfunktionen:
 
@@ -38,30 +38,31 @@ Kernfunktionen:
    - API key protection for `/api/print/*`
    - Optional LAN IP restriction via `LAN_ONLY`
 
-3. **PowerShell launcher (`launch-pool-printer.ps1`)**
+3. **PowerShell launcher (`launch-pool-printer.ps1`, nur Windows-Clients)**
    - Liest den aktuellen Windows-Benutzernamen
    - Normalisiert ihn zu lowercase
    - Sendet Benutzername + Secret per POST an `/api/public/launch`
    - Öffnet danach die URL mit `?launchToken=...`
 
 4. **Print middleware (`print-middleware/index.ts`)**
-   - Polls the Windows spooler
+   - Polls Ubuntu CUPS queues
    - Reserves before print via `/api/print/reserve`
    - Confirms or cancels via `/api/print/confirm` and `/api/print/cancel`
 
 ### 3) Anforderungen
 
-- Windows
+- Ubuntu Server (für App + Print Middleware)
 - Node.js 20+
 - npm
-- Access to target print queues
-- Permission to read, resume, and pause print jobs
+- CUPS installiert (`lpstat`, `cancel`, `cupsenable`, `cupsdisable` verfügbar)
+- Zugriff auf die verwendeten CUPS-Queues
+- Windows Clients für den Launcher-Flow (`launch-pool-printer.ps1`)
 
 ### 4) Setup
 
 ```bash
 npm install
-copy .env.example .env.local
+cp .env.example .env.local
 npm run db:init
 ```
 
@@ -87,37 +88,36 @@ npm run start
 npx tsx print-middleware/index.ts
 ```
 
-### 6) Windows Autostart mit PowerShell
+Ubuntu-Startscript (Server):
 
-Lege im Projektordner diese Datei an:
-
-- `start-pool-printer.ps1`
-
-Das Skript:
-
-- startet die Next.js App im Hintergrund
-- startet die Print Middleware im Hintergrund
-- kann optional den Autostart als Task anlegen
-
-Normales Starten:
-
-```powershell
-.\start-pool-printer.ps1
+```bash
+chmod +x ./start-pool-printer.sh
+./start-pool-printer.sh
 ```
 
-Autostart als Task anlegen:
+### 6) Ubuntu Autostart (systemd)
 
-```powershell
-.\start-pool-printer.ps1 -InstallAutostart
+Beispiel-Units liegen in `deploy/systemd/`:
+
+- `pool-printer-app.service`
+- `pool-printer-middleware.service`
+
+Installation (Beispiel):
+
+```bash
+sudo cp deploy/systemd/pool-printer-app.service /etc/systemd/system/
+sudo cp deploy/systemd/pool-printer-middleware.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now pool-printer-app.service
+sudo systemctl enable --now pool-printer-middleware.service
 ```
 
 Hinweise:
 
-- Das Skript verwendet standardmäßig den Ordner, in dem es liegt.
-- Vorher einmal `npm run build` ausführen, damit `npm run start` lauffähig ist.
-- Die Prozesse starten minimiert und können von der Taskleiste aus geöffnet werden.
+- Passe in den Service-Dateien `WorkingDirectory`, `User` und `Group` an.
+- Für die Middleware muss der User auf CUPS zugreifen können (z. B. Gruppe `lp`).
 
-### 7) Public Launcher (PowerShell)
+### 7) Public Launcher (PowerShell, Windows Clients)
 
 Der Public-Flow arbeitet ohne IIS und ohne Header-Forwarding.
 
@@ -153,6 +153,8 @@ NEXTAUTH_SECRET=change-me
 API_KEY=change-me
 PUBLIC_LAUNCH_SECRET=change-me
 PUBLIC_LAUNCH_TTL_SECONDS=120
+PRINTER_BW=pool_bw
+PRINTER_COLOR=pool_color
 LAN_ONLY=false
 ```
 
@@ -189,6 +191,11 @@ LAN_ONLY=false
 3. Bei Erfolg: Job wird freigegeben, Transaktion `pending` angelegt
 4. Bei erfolgreichem Druck: `/api/print/confirm` -> Transaktion `completed`
 5. Drucker wird wieder pausiert, falls keine weiteren Aufträge ausstehen
+
+Für Ubuntu/CUPS:
+
+- `pages` wird mit Priorität ermittelt: `sheets` -> `job-impressions` -> `totalPages * copies` -> Fallback `1` (mit Log)
+- Der Windows-Username von Clients wird weiterhin normalisiert (lowercase)
 
 **Fehler: Nutzer nicht vorhanden oder unzureichendes Guthaben:**
 
@@ -265,30 +272,31 @@ Main capabilities:
    - API key protection for `/api/print/*`
    - Optional LAN IP restriction (`LAN_ONLY`)
 
-3. **PowerShell launcher (`launch-pool-printer.ps1`)**
+3. **PowerShell launcher (`launch-pool-printer.ps1`, Windows clients only)**
    - Reads current Windows username
    - Always normalizes to lowercase
    - Sends username + secret via POST to `/api/public/launch`
    - Opens browser with `/public?launchToken=...`
 
 4. **Print middleware (`print-middleware/index.ts`)**
-   - Polls Windows spooler
+   - Polls Ubuntu CUPS queues
    - Reserves before print (`/api/print/reserve`)
    - Confirms/cancels (`/api/print/confirm`, `/api/print/cancel`)
 
 ### 3) Requirements
 
-- Windows
+- Ubuntu server (for app + print middleware)
 - Node.js 20+
 - npm
-- Access to target print queues
-- Permission to read/resume/pause print jobs
+- CUPS installed (`lpstat`, `cancel`, `cupsenable`, `cupsdisable` available)
+- Access rights to the configured CUPS queues
+- Windows clients for the PowerShell launcher flow
 
 ### 4) Setup
 
 ```bash
 npm install
-copy .env.example .env.local
+cp .env.example .env.local
 npm run db:init
 ```
 
@@ -314,37 +322,33 @@ npm run start
 npx tsx print-middleware/index.ts
 ```
 
-### 5.1) Windows autostart (PowerShell)
+Ubuntu startup script (server):
 
-Create only this one PowerShell script in the project folder:
-
-- `start-pool-printer.ps1`
-
-The script:
-
-- starts the Next.js app in the background
-- starts the print middleware in the background
-- can optionally install autostart as a scheduled task
-
-Run it normally:
-
-```powershell
-.\start-pool-printer.ps1
+```bash
+chmod +x ./start-pool-printer.sh
+./start-pool-printer.sh
 ```
 
-Create the scheduled task:
+### 5.1) Ubuntu autostart (systemd)
 
-```powershell
-.\start-pool-printer.ps1 -InstallAutostart
+Use the example unit files in `deploy/systemd/`:
+
+- `pool-printer-app.service`
+- `pool-printer-middleware.service`
+
+Install (example):
+
+```bash
+sudo cp deploy/systemd/pool-printer-app.service /etc/systemd/system/
+sudo cp deploy/systemd/pool-printer-middleware.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now pool-printer-app.service
+sudo systemctl enable --now pool-printer-middleware.service
 ```
 
-Notes:
+Adjust `WorkingDirectory`, `User`, and `Group` before enabling.
 
-- The script uses the folder it lives in by default.
-- Run `npm run build` once before using `npm run start`.
-- The processes start minimized and can be opened from the taskbar.
-
-### 6) Public launcher usage
+### 6) Public launcher usage (Windows clients)
 
 ```powershell
 .\launch-pool-printer.ps1 -LaunchSecret "YOUR_SECRET"
