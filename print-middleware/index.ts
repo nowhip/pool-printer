@@ -33,14 +33,6 @@ async function runPS(cmd: string): Promise<string> {
   return stdout.trim();
 }
 
-function psQuote(value: string): string {
-  return value.replace(/'/g, "''");
-}
-
-function formatError(error: unknown): string {
-  return error instanceof Error ? error.message.split("\n")[0] : String(error);
-}
-
 // Configuration
 const API_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
 const API_KEY = process.env.API_KEY;
@@ -88,10 +80,6 @@ async function apiRequest(path: string, body: Record<string, unknown>): Promise<
   return (await res.json()) as Record<string, unknown>;
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
-}
-
 function getPrinterType(printerName: string): "bw" | "color" {
   // If a color printer is configured and this job is on it, it's color
   if (PRINTER_COLOR && printerName === PRINTER_COLOR && PRINTER_COLOR !== PRINTER_BW) {
@@ -134,8 +122,7 @@ async function getPausedJobs(): Promise<PrintJob[]> {
 
   for (const printer of printers) {
     try {
-      const p = psQuote(printer);
-      const cmd = `Get-PrintJob -PrinterName '${p}' -ErrorAction Stop | Where-Object { $_.JobStatus -notmatch 'Printed|Completed|Sent|Deleting|Deleted' } | Select-Object Id, DocumentName, UserName, PrinterName, TotalPages, PagesPrinted, @{Name='Copies';Expression={if($_.Copies){$_.Copies}else{1}}}, JobStatus | ConvertTo-Json -Depth 3`;
+      const cmd = `Get-PrintJob -PrinterName '${printer}' -ErrorAction Stop | Where-Object { $_.JobStatus -notmatch 'Printed|Completed|Sent|Deleting|Deleted' } | Select-Object Id, DocumentName, UserName, PrinterName, TotalPages, PagesPrinted, @{Name='Copies';Expression={if($_.Copies){$_.Copies}else{1}}}, JobStatus | ConvertTo-Json -Depth 3`;
       const stdout = await runPS(cmd);
 
       if (!stdout) continue;
@@ -156,8 +143,7 @@ async function getPausedJobs(): Promise<PrintJob[]> {
 
 async function getJobStatus(printerName: string, jobId: number): Promise<string | null> {
   try {
-    const p = psQuote(printerName);
-    const stdout = await runPS(`Get-PrintJob -PrinterName '${p}' -ID ${jobId} | Select-Object -ExpandProperty JobStatus`);
+    const stdout = await runPS(`Get-PrintJob -PrinterName '${printerName}' -ID ${jobId} | Select-Object -ExpandProperty JobStatus`);
     return stdout || null;
   } catch {
     return null; // Job likely no longer exists (completed/removed)
@@ -165,90 +151,39 @@ async function getJobStatus(printerName: string, jobId: number): Promise<string 
 }
 
 async function resumeJob(printerName: string, jobId: number): Promise<void> {
-  const p = psQuote(printerName);
-  await runPS(`Resume-PrintJob -PrinterName '${p}' -ID ${jobId} -ErrorAction Stop`);
+  await runPS(`Resume-PrintJob -PrinterName '${printerName}' -ID ${jobId}`);
 }
 
-async function setPrinterPausedState(printerName: string, pause: boolean): Promise<boolean> {
-  const p = psQuote(printerName);
-  const method = pause ? "Pause" : "Resume";
-  const commandList = pause
-    ? [
-      `Suspend-Printer -Name '${p}' -ErrorAction Stop`,
-      `Get-CimInstance -Class Win32_Printer -Filter "Name='${p}'" -ErrorAction Stop | Invoke-CimMethod -MethodName Pause -ErrorAction Stop | Out-Null`,
-      `(Get-WmiObject -Class Win32_Printer -Filter "Name='${p}'" -ErrorAction Stop).Pause() | Out-Null`,
-    ]
-    : [
-      `Resume-Printer -Name '${p}' -ErrorAction Stop`,
-      `Get-CimInstance -Class Win32_Printer -Filter "Name='${p}'" -ErrorAction Stop | Invoke-CimMethod -MethodName Resume -ErrorAction Stop | Out-Null`,
-      `(Get-WmiObject -Class Win32_Printer -Filter "Name='${p}'" -ErrorAction Stop).Resume() | Out-Null`,
-    ];
-
-  let lastError = "";
-  for (const cmd of commandList) {
-    try {
-      await runPS(cmd);
-      return true;
-    } catch (error) {
-      lastError = formatError(error);
-    }
-  }
-
-  console.error(`[PRINTER] Failed to ${method.toLowerCase()} ${printerName}: ${lastError || "unknown error"}`);
-  return false;
-}
-
-async function unpausePrinter(printerName: string): Promise<boolean> {
-  return setPrinterPausedState(printerName, false);
-}
-
-async function pausePrinter(printerName: string): Promise<boolean> {
-  return setPrinterPausedState(printerName, true);
-}
-
-async function jobExists(printerName: string, jobId: number): Promise<boolean> {
-  const p = psQuote(printerName);
+async function unpausePrinter(printerName: string): Promise<void> {
   try {
-    const stdout = await runPS(
-      `$j = Get-PrintJob -PrinterName '${p}' -ID ${jobId} -ErrorAction SilentlyContinue; if ($null -eq $j) { '0' } else { '1' }`
-    );
-    return stdout.trim() === "1";
+    await runPS(`Get-CimInstance -Class Win32_Printer | Where-Object { $_.Name -eq "${printerName}" } | Invoke-CimMethod -MethodName Resume`);
+  } catch (error) {
+    console.error(`[PRINTER] Failed to unpause ${printerName}:`, error instanceof Error ? error.message.split('\n')[0] : error);
+  }
+}
+
+async function pausePrinter(printerName: string): Promise<void> {
+  try {
+    await runPS(`Get-CimInstance -Class Win32_Printer | Where-Object { $_.Name -eq "${printerName}" } | Invoke-CimMethod -MethodName Pause`);
+  } catch (error) {
+    console.error(`[PRINTER] Failed to pause ${printerName}:`, error instanceof Error ? error.message.split('\n')[0] : error);
+  }
+}
+
+async function removeJob(printerName: string, jobId: number): Promise<void> {
+  try {
+    await runPS(`Remove-PrintJob -PrinterName '${printerName}' -ID ${jobId} -ErrorAction SilentlyContinue`);
   } catch {
-    return false;
+    // Job may already be gone
   }
 }
 
-async function removeJob(printerName: string, jobId: number): Promise<boolean> {
-  if (!(await jobExists(printerName, jobId))) return true;
-
-  const p = psQuote(printerName);
-  const commandList = [
-    `Remove-PrintJob -PrinterName '${p}' -ID ${jobId} -ErrorAction Stop`,
-    `Get-PrintJob -PrinterName '${p}' -ID ${jobId} -ErrorAction Stop | Remove-PrintJob -ErrorAction Stop`,
-    `$j = Get-WmiObject -Class Win32_PrintJob -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '${p},*' -and $_.JobId -eq ${jobId} } | Select-Object -First 1; if ($j) { $j.Delete() | Out-Null } else { throw 'Job not found' }`,
-  ];
-
-  let lastError = "";
-  for (const cmd of commandList) {
-    try {
-      await runPS(cmd);
-      if (!(await jobExists(printerName, jobId))) return true;
-    } catch (error) {
-      lastError = formatError(error);
-    }
+async function cancelJob(printerName: string, jobId: number): Promise<void> {
+  try {
+    await runPS(`Remove-PrintJob -PrinterName '${printerName}' -ID ${jobId} -ErrorAction SilentlyContinue`);
+  } catch {
+    // Job may already be gone
   }
-
-  if (!(await jobExists(printerName, jobId))) return true;
-
-  if (lastError) {
-    console.warn(`[CLEANUP] Could not remove job #${jobId} from ${printerName}: ${lastError}`);
-  }
-
-  return false;
-}
-
-async function cancelJob(printerName: string, jobId: number): Promise<boolean> {
-  return removeJob(printerName, jobId);
 }
 
 async function handlePausedJobs(): Promise<void> {
@@ -276,7 +211,6 @@ async function handlePausedJobs(): Promise<void> {
         userId,
         pages,
         printerType,
-        jobKey: key,
       });
 
       if (result.allowed) {
@@ -296,18 +230,12 @@ async function handlePausedJobs(): Promise<void> {
 
         trackedJobs.set(key, tracked);
         console.log(
-          `[RESUMED] Job #${id} - ${result.isFree ? "FREE" : `Transaction #${result.transactionId}${result.deduplicated ? " (deduplicated)" : ""}`}`
+          `[RESUMED] Job #${id} - ${result.isFree ? "FREE" : `Transaction #${result.transactionId}`}`
         );
       } else {
-        // Not allowed - reject and remove the job immediately from the queue
+        // Not allowed - cancel the job
         console.log(`[DENIED] Job #${id} from ${userId}: ${result.reason}`);
-        console.log(`        Balance: ${result.balance || 'N/A'}, Required: ${result.required || 'N/A'}`);
-        const removed = await cancelJob(job.PrinterName, id);
-        if (removed) {
-          console.log(`[REMOVED] Job #${id} has been deleted from ${job.PrinterName} (user not found or insufficient balance)`);
-        } else {
-          console.warn(`[PENDING] Job #${id} could not be removed from ${job.PrinterName}; it may still be in queue`);
-        }
+        await cancelJob(job.PrinterName, id);
       }
     } catch (error) {
       console.error(`[ERROR] Failed to process job #${id}:`, error);
@@ -344,10 +272,7 @@ async function checkTrackedJobs(): Promise<void> {
           console.log(`[CONFIRMED] Job #${tracked.jobId} - Status: ${status}`);
         }
         // Try to clean up the job
-        const removed = await removeJob(tracked.printerName, tracked.jobId);
-        if (!removed) {
-          console.warn(`[CLEANUP] Job #${tracked.jobId} is still present in ${tracked.printerName}`);
-        }
+        await removeJob(tracked.printerName, tracked.jobId);
         trackedJobs.delete(key);
         // Re-pause printer if no more tracked jobs
         if (!hasTrackedJobsForPrinter(tracked.printerName)) {
@@ -404,13 +329,6 @@ async function poll(): Promise<void> {
   }
 }
 
-async function startPolling(): Promise<void> {
-  while (true) {
-    await poll();
-    await sleep(POLL_INTERVAL);
-  }
-}
-
 // Main entry point
 console.log("=== Print Middleware Starting ===");
 console.log(`API URL: ${API_URL}`);
@@ -423,11 +341,11 @@ if (!PRINTER_COLOR || PRINTER_BW === PRINTER_COLOR) {
 console.log(`Poll interval: ${POLL_INTERVAL}ms`);
 console.log("================================\n");
 
-// Start sequential polling loop (no overlapping runs)
-startPolling().catch((error) => {
-  console.error("[FATAL] Polling loop crashed:", error);
-  process.exit(1);
-});
+// Initial poll
+poll();
+
+// Set up interval
+setInterval(poll, POLL_INTERVAL);
 
 // Graceful shutdown
 process.on("SIGINT", () => {
