@@ -1,4 +1,4 @@
-import { verifyPublicLaunchToken } from "@/lib/public-launch";
+import { PUBLIC_LAUNCH_COOKIE_NAME, verifyPublicLaunchToken } from "@/lib/public-launch";
 
 export function normalizePublicUserId(rawValue: unknown): string | null {
   if (typeof rawValue !== "string") return null;
@@ -23,8 +23,13 @@ export function resolvePublicUserIdFromRequest(request: Request): {
   source: string | null;
   rawValue: string | null;
 } {
-  const url = new URL(request.url);
-  const rawToken = url.searchParams.get("launchToken");
+  const cookieHeader = request.headers.get("cookie") || "";
+  const rawToken = cookieHeader
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${PUBLIC_LAUNCH_COOKIE_NAME}=`))
+    ?.slice(PUBLIC_LAUNCH_COOKIE_NAME.length + 1);
+
   if (!rawToken) {
     return {
       userId: null,
@@ -44,7 +49,7 @@ export function resolvePublicUserIdFromRequest(request: Request): {
 
   const userId = normalizePublicUserId(tokenResult.userId);
   if (userId) {
-    return { userId, source: "launchToken", rawValue: rawToken };
+    return { userId, source: "launchCookie", rawValue: rawToken };
   }
 
   return {

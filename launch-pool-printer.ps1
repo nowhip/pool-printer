@@ -1,6 +1,5 @@
 param(
-  [string]$BaseUrl = "http://localhost:3000/public",
-  [string]$LaunchSecret = "CHANGE_ME_PUBLIC_LAUNCH_SECRET"
+  [string]$AppBaseUrl = "http://localhost:3000"
 )
 
 $ErrorActionPreference = "Stop"
@@ -35,47 +34,29 @@ function Get-NormalizedWindowsUser {
   return $user
 }
 
-function Get-PublicUrlWithToken {
+function Get-LaunchUrl {
   param(
-    [string]$Url,
-    [string]$LaunchToken
+    [string]$BaseUrl,
+    [string]$UserName
   )
 
-  $builder = [System.UriBuilder]::new($Url)
-  $builder.Query = "launchToken=$([uri]::EscapeDataString($LaunchToken))"
-  return $builder.Uri.AbsoluteUri
-}
-
-function Get-LaunchToken {
-  param(
-    [string]$PublicUrl,
-    [string]$UserName,
-    [string]$Secret
-  )
-
-  if ([string]::IsNullOrWhiteSpace($Secret) -or $Secret -eq "CHANGE_ME_PUBLIC_LAUNCH_SECRET") {
-    throw "LaunchSecret is not configured. Set -LaunchSecret or edit launch-pool-printer.ps1."
-  }
-
-  $uri = [System.Uri]::new($PublicUrl)
+  $uri = [System.Uri]::new($BaseUrl)
   $launchEndpoint = "$($uri.Scheme)://$($uri.Authority)/api/public/launch"
 
   $payload = @{
     username = $UserName
-    key = $Secret
   } | ConvertTo-Json
 
   $response = Invoke-RestMethod -Method Post -Uri $launchEndpoint -ContentType "application/json" -Body $payload
 
-  if (-not $response.launchToken) {
-    throw "Launch endpoint did not return a launchToken."
+  if (-not $response.launchUrl) {
+    throw "Launch endpoint did not return launchUrl."
   }
 
-  return [string]$response.launchToken
+  return [string]$response.launchUrl
 }
 
 $userName = Get-NormalizedWindowsUser
-$launchToken = Get-LaunchToken -PublicUrl $BaseUrl -UserName $userName -Secret $LaunchSecret
-$targetUrl = Get-PublicUrlWithToken -Url $BaseUrl -LaunchToken $launchToken
+$launchUrl = Get-LaunchUrl -BaseUrl $AppBaseUrl -UserName $userName
 
-Start-Process $targetUrl
+Start-Process $launchUrl

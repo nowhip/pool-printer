@@ -83,8 +83,6 @@ interface Pagination {
 export default function PublicPage() {
   const { t, locale, setLocale, formatCurrency, formatDateTime } = useI18n();
   const { setTheme, theme } = useTheme();
-  const [launchToken, setLaunchToken] = useState<string | null>(null);
-  const [userInitialized, setUserInitialized] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -100,16 +98,9 @@ export default function PublicPage() {
     totalPages: 0,
   });
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("launchToken")?.trim() || null;
-    setLaunchToken(token);
-    setUserInitialized(true);
-  }, []);
-
   const buildPublicApiUrl = useCallback(
     (path: string, params?: Record<string, string>) => {
-      const query = new URLSearchParams({ launchToken: launchToken || "" });
+      const query = new URLSearchParams();
 
       if (params) {
         for (const [key, value] of Object.entries(params)) {
@@ -117,19 +108,14 @@ export default function PublicPage() {
         }
       }
 
-      return `${path}?${query.toString()}`;
+      const queryString = query.toString();
+      return queryString ? `${path}?${queryString}` : path;
     },
-    [launchToken],
+    [],
   );
 
   const fetchTransactions = useCallback(
     async (page = 1) => {
-      if (!launchToken) {
-        setTransactions([]);
-        setPagination({ page: 1, limit: 20, total: 0, totalPages: 0 });
-        return;
-      }
-
       const res = await fetch(
         buildPublicApiUrl("/api/public/transactions", {
           page: String(page),
@@ -147,19 +133,12 @@ export default function PublicPage() {
         data.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 },
       );
     },
-    [buildPublicApiUrl, launchToken, pagination.limit],
+    [buildPublicApiUrl, pagination.limit],
   );
 
   const fetchAccount = useCallback(async () => {
     setLoading(true);
     try {
-      if (!launchToken) {
-        setAccount(null);
-        setTransactions([]);
-        setPagination({ page: 1, limit: 20, total: 0, totalPages: 0 });
-        return;
-      }
-
       const res = await fetch(buildPublicApiUrl("/api/public/me"));
       const data = (await res.json()) as PublicAccount;
       setAccount(data);
@@ -176,31 +155,17 @@ export default function PublicPage() {
     } finally {
       setLoading(false);
     }
-  }, [buildPublicApiUrl, fetchTransactions, launchToken, t]);
+  }, [buildPublicApiUrl, fetchTransactions, t]);
 
   useEffect(() => {
-    if (!userInitialized) {
-      return;
-    }
-
     fetchAccount();
-  }, [fetchAccount, userInitialized]);
+  }, [fetchAccount]);
 
   const handleLoadAccount = async () => {
-    if (!launchToken) {
-      toast.error(t("public.userResolveFailedTitle"));
-      return;
-    }
-
     await fetchAccount();
   };
 
   const handleCreateAccount = async () => {
-    if (!launchToken) {
-      toast.error(t("public.userResolveFailedTitle"));
-      return;
-    }
-
     setCreating(true);
     try {
       const res = await fetch(buildPublicApiUrl("/api/public/create-account"), {
@@ -224,11 +189,6 @@ export default function PublicPage() {
   };
 
   const handleAccountDeletionAction = async (action: "request" | "restore") => {
-    if (!launchToken) {
-      toast.error(t("public.userResolveFailedTitle"));
-      return;
-    }
-
     try {
       const res = await fetch(
         buildPublicApiUrl("/api/public/account-deletion"),

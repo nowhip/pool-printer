@@ -133,7 +133,7 @@ const de = {
   "public.transactionsTitle": "Transaktionsverlauf",
   "public.transactionsDescription": "Alle bisherigen Buchungen mit druckbarem Beleg.",
   "public.userResolveFailedTitle": "Windows-Benutzer konnte nicht erkannt werden",
-  "public.userResolveFailedDesc": "Starten Sie die Seite über das PowerShell-Skript. Das Skript holt im Hintergrund einen Start-Token und öffnet /public nur mit gültigem Token.",
+  "public.userResolveFailedDesc": "Diese Seite kann nur über den Launcher geöffnet werden. Bitte starten Sie den Launcher (PowerShell/EXE), damit ein gültiges Sitzungs-Cookie gesetzt wird.",
   "public.userIdPlaceholder": "z. B. maxmustermann",
   "public.loadAccount": "Konto laden",
   "public.userIdRequired": "Bitte zuerst eine Benutzer-ID eingeben",

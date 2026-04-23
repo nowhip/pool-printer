@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
+const PUBLIC_LAUNCH_COOKIE_NAME = "pool_printer_public_launch";
+
 const LAN_ONLY = process.env.LAN_ONLY !== "0";
 
 function isPrivateOrLoopbackIp(ip: string): boolean {
@@ -49,14 +51,11 @@ function getClientIp(request: NextRequest): string {
 }
 
 export async function proxy(request: NextRequest) {
-  const { pathname, searchParams } = request.nextUrl;
-  const hasLaunchToken = !!searchParams.get("launchToken");
+  const { pathname } = request.nextUrl;
+  const hasLaunchCookie = !!request.cookies.get(PUBLIC_LAUNCH_COOKIE_NAME)?.value;
 
   // Public self-service page and APIs (no supervisor login)
   if (pathname === "/public") {
-    if (!hasLaunchToken) {
-      return new NextResponse("Forbidden", { status: 403 });
-    }
     return NextResponse.next();
   }
 
@@ -64,9 +63,19 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (pathname === "/api/public/activate") {
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/api/public")) {
-    if (!hasLaunchToken) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!hasLaunchCookie && pathname !== "/api/public/me") {
+      return NextResponse.json(
+        {
+          error: "Public launch cookie missing",
+          hint: "Start this page via the launcher executable/script.",
+        },
+        { status: 403 },
+      );
     }
     return NextResponse.next();
   }

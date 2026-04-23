@@ -11,8 +11,8 @@ export async function POST(request: Request) {
 
     if (!userId) {
       return NextResponse.json({
-        error: "Public user is missing",
-        hint: "Start the app via the PowerShell launcher. It requests a launch token in the background and opens /public with launchToken.",
+        error: "Public launch cookie missing",
+        hint: "Start this page via the launcher executable or PowerShell script.",
       });
     }
 

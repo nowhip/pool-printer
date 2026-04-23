@@ -1,36 +1,44 @@
 import { NextResponse } from "next/server";
-import { createPublicLaunchToken } from "@/lib/public-launch";
+import { createPublicLaunchGrant, createPublicLaunchToken } from "@/lib/public-launch";
 import { normalizePublicUserId } from "@/lib/public-user";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const providedKey = typeof body?.key === "string" ? body.key.trim() : "";
     const rawUsername = typeof body?.username === "string" ? body.username : "";
     const normalizedUser = normalizePublicUserId(rawUsername);
 
-    const expectedKey = process.env.PUBLIC_LAUNCH_SECRET?.trim();
-    if (!expectedKey) {
+    if (!normalizedUser) {
+      return NextResponse.json({ error: "username is required" }, { status: 400 });
+    }
+
+    // Ensure launch secret is configured before issuing any signed values.
+    if (!process.env.PUBLIC_LAUNCH_SECRET?.trim()) {
       return NextResponse.json(
         { error: "PUBLIC_LAUNCH_SECRET is not configured" },
         { status: 500 },
       );
     }
 
-    if (!providedKey || providedKey !== expectedKey) {
-      return NextResponse.json({ error: "Invalid launcher key" }, { status: 403 });
-    }
+    const requestUrl = new URL(request.url);
+    const baseOrigin = `${requestUrl.protocol}//${requestUrl.host}`;
 
-    if (!normalizedUser) {
-      return NextResponse.json({ error: "username is required" }, { status: 400 });
-    }
+    const configuredPublicUrl = process.env.PUBLIC_LAUNCH_BROWSER_URL?.trim() || "/public";
+    const publicUrl = configuredPublicUrl.startsWith("http")
+      ? configuredPublicUrl
+      : new URL(configuredPublicUrl, baseOrigin).toString();
 
     const launchToken = createPublicLaunchToken(normalizedUser);
+    const launchGrant = createPublicLaunchGrant(launchToken);
+    const activateUrl = new URL("/api/public/activate", baseOrigin);
+    activateUrl.searchParams.set("grant", launchGrant);
+    activateUrl.searchParams.set("next", publicUrl);
 
     return NextResponse.json({
       ok: true,
-      launchToken,
+      launchUrl: activateUrl.toString(),
       user: normalizedUser,
+      publicUrl,
     });
   } catch (error) {
     console.error("Failed to create public launch token:", error);

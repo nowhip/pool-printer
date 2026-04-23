@@ -41,8 +41,9 @@ Kernfunktionen:
 3. **PowerShell launcher (`launch-pool-printer.ps1`)**
    - Liest den aktuellen Windows-Benutzernamen
    - Normalisiert ihn zu lowercase
-   - Sendet Benutzername + Secret per POST an `/api/public/launch`
-   - Öffnet danach die URL mit `?launchToken=...`
+   - Sendet nur den Benutzernamen per POST an `/api/public/launch`
+   - Erhält vom Server eine `launchUrl`
+   - Öffnet diese URL, worauf der Server ein HttpOnly-Cookie setzt und nach `/public` umleitet
 
 4. **Print middleware (`print-middleware/index.ts`)**
    - Polls the Windows spooler
@@ -124,26 +125,38 @@ Der Public-Flow arbeitet ohne IIS und ohne Header-Forwarding.
 Standardstart:
 
 ```powershell
-.\launch-pool-printer.ps1 -LaunchSecret "DEIN_SECRET"
+.\launch-pool-printer.ps1
 ```
 
 Start gegen einen anderen Host:
 
 ```powershell
-.\launch-pool-printer.ps1 -BaseUrl "http://server-name:3000/public" -LaunchSecret "DEIN_SECRET"
+.\launch-pool-printer.ps1 -AppBaseUrl "http://server-name:3000"
 ```
 
 Das Script:
 
 - liest den aktuellen Windows-Benutzer
 - normalisiert den Namen auf lowercase
-- sendet Benutzername + Secret per POST an `/api/public/launch`
-- öffnet danach die URL mit `?launchToken=...`
+- sendet den Benutzernamen per POST an `/api/public/launch`
+- erhält eine `launchUrl` vom Server
+- öffnet diese `launchUrl`, die ein HttpOnly-Cookie setzt und dann auf die Public-Seite weiterleitet
 
 Wichtig:
 
+- Das Secret bleibt ausschließlich auf dem Server (`PUBLIC_LAUNCH_SECRET`).
+- Der Token steht nicht in der URL, sondern als Cookie.
+- Bei erneutem Launcher-Start wird das Cookie durch den neuen Token überschrieben.
 - Der Benutzername wird im Frontend und Backend zusätzlich normalisiert.
 - Groß-/Kleinschreibung ist damit immer konsistent lowercase.
+
+Optional EXE (statt `.ps1` direkt):
+
+```powershell
+.\build-launcher-exe.ps1
+```
+
+Danach kann `launch-pool-printer.exe` per Doppelklick gestartet werden.
 
 ### 8) Umgebungsvariablen
 
@@ -153,10 +166,12 @@ NEXTAUTH_SECRET=change-me
 API_KEY=change-me
 PUBLIC_LAUNCH_SECRET=change-me
 PUBLIC_LAUNCH_TTL_SECONDS=120
+PUBLIC_LAUNCH_GRANT_TTL_SECONDS=30
+PUBLIC_LAUNCH_BROWSER_URL=/public
 LAN_ONLY=false
 ```
 
-`PUBLIC_LAUNCH_SECRET` muss mit dem Secret übereinstimmen, das von `launch-pool-printer.ps1` verwendet wird.
+`PUBLIC_LAUNCH_SECRET` bleibt serverseitig und wird vom Launcher nicht mehr benötigt.
 
 ### 9) Betriebslogik (End-to-End)
 
@@ -171,8 +186,10 @@ LAN_ONLY=false
 
 #### 9.2 Self-Service (`/public`)
 
-- Zugriff auf `/public` nur mit gültigem `launchToken`
-- Public-Benutzer wird serverseitig aus dem `launchToken` abgeleitet
+- Launcher ruft `/api/public/launch` auf und bekommt eine `launchUrl`
+- `launchUrl` setzt ein signiertes HttpOnly-Cookie und leitet auf `/public` weiter
+- Public-Benutzer wird serverseitig aus dem Cookie-Token abgeleitet
+- Wenn kein gültiges Cookie vorhanden ist, zeigt `/public` eine Fehlermeldung (nur Launcher-Zugriff)
 - Falls kein Konto existiert: Konto kann angelegt werden
 - Kontostand + Transaktionen sichtbar
 - Löschantrag kann vom User selbst gestellt und innerhalb von 7 Tagen widerrufen werden
@@ -207,6 +224,7 @@ LAN_ONLY=false
 Public:
 
 - `POST /api/public/launch`
+- `GET /api/public/activate`
 - `GET /api/public/me`
 - `POST /api/public/create-account`
 - `GET /api/public/transactions`
@@ -268,8 +286,9 @@ Main capabilities:
 3. **PowerShell launcher (`launch-pool-printer.ps1`)**
    - Reads current Windows username
    - Always normalizes to lowercase
-   - Sends username + secret via POST to `/api/public/launch`
-   - Opens browser with `/public?launchToken=...`
+   - Sends only username via POST to `/api/public/launch`
+   - Receives a server-generated `launchUrl`
+   - Opens `launchUrl`, which sets an HttpOnly cookie and redirects to `/public`
 
 4. **Print middleware (`print-middleware/index.ts`)**
    - Polls Windows spooler
@@ -347,13 +366,19 @@ Notes:
 ### 6) Public launcher usage
 
 ```powershell
-.\launch-pool-printer.ps1 -LaunchSecret "YOUR_SECRET"
+.\launch-pool-printer.ps1
 ```
 
 Custom host:
 
 ```powershell
-.\launch-pool-printer.ps1 -BaseUrl "http://server-name:3000/public" -LaunchSecret "YOUR_SECRET"
+.\launch-pool-printer.ps1 -AppBaseUrl "http://server-name:3000"
+```
+
+Optional EXE packaging:
+
+```powershell
+.\build-launcher-exe.ps1
 ```
 
 ### 7) Main APIs
@@ -361,6 +386,7 @@ Custom host:
 Public:
 
 - `POST /api/public/launch`
+- `GET /api/public/activate`
 - `GET /api/public/me`
 - `POST /api/public/create-account`
 - `GET /api/public/transactions`

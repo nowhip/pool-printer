@@ -12,8 +12,8 @@ export async function GET(request: Request) {
       return NextResponse.json({
         resolved: false,
         exists: false,
-        error: "userId is required",
-        hint: "Start the app via the PowerShell launcher. It requests a launch token in the background and opens /public with launchToken.",
+        error: "Public launch cookie missing",
+        hint: "Start this page via the launcher executable or PowerShell script.",
       });
     }
 
