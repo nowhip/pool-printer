@@ -14,8 +14,7 @@ function sanitizeRedirectTarget(raw: string | null, origin: string): string {
 
   try {
     const target = new URL(raw, origin);
-    // Only allow same-origin redirects.
-    if (target.origin !== origin) {
+    if (target.origin !== new URL(origin).origin) {
       return fallback;
     }
     return target.toString();
@@ -25,8 +24,12 @@ function sanitizeRedirectTarget(raw: string | null, origin: string): string {
 }
 
 export async function GET(request: Request) {
+  const origin = process.env.NEXTAUTH_URL?.trim();
+  if (!origin) {
+    return new NextResponse("NEXTAUTH_URL is not configured", { status: 500 });
+  }
+
   const reqUrl = new URL(request.url);
-  const origin = `${reqUrl.protocol}//${reqUrl.host}`;
   const grant = reqUrl.searchParams.get("grant")?.trim() || "";
   const next = sanitizeRedirectTarget(reqUrl.searchParams.get("next"), origin);
 
@@ -45,7 +48,7 @@ export async function GET(request: Request) {
   response.cookies.set(PUBLIC_LAUNCH_COOKIE_NAME, consumed.launchToken, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: origin.startsWith("https://"),
     path: "/",
     maxAge: getPublicLaunchCookieMaxAge(),
   });
